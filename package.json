@@ -12,6 +12,7 @@
     "worker:start": "ts-node -P temporal/tsconfig.json temporal/src/worker.ts",
     "worker:dev": "ts-node-dev --respawn --transpile-only -P temporal/tsconfig.json temporal/src/worker.ts",
     "dev:full": "concurrently --kill-others \"npm run dev\" \"npm run worker:start\"",
+    "auto:commit": "node scripts/auto-commit.js",
     "schedules:register": "ts-node -P temporal/tsconfig.json temporal/src/schedules.ts"
   },
   "dependencies": {

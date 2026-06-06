@@ -50,3 +50,22 @@ Or for SSH-based deploy:
 - `COOLIFY_APP_PATH`
 
 If the secrets are configured, the workflow will build the app and then request the Coolify deploy or perform the SSH deploy command automatically.
+
+## Local auto-commit automation
+
+A local watcher script can automatically commit and push changes to `main` only when the code is clean.
+
+Run it from the repo root with:
+
+```bash
+npm run auto:commit
+```
+
+It will:
+- watch source files and repo config files
+- run `npm run lint`
+- run `npm run build`
+- commit and push only if both checks pass
+- only operate on `main`
+
+Use this only on a trusted development machine, because it will push commits automatically when code is clean.
