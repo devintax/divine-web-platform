@@ -7,6 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
+    "test": "npm run lint && npm run build && npm run worker:build",
     "worker:build": "tsc -p temporal/tsconfig.json",
     "worker": "node dist/temporal/worker.js",
     "worker:start": "ts-node -P temporal/tsconfig.json temporal/src/worker.ts",

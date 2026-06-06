@@ -63,9 +63,8 @@ npm run auto:commit
 
 It will:
 - watch source files and repo config files
-- run `npm run lint`
-- run `npm run build`
-- commit and push only if both checks pass
+- run `npm test` (which runs lint, app build, and worker compile)
+- commit and push only if tests pass
 - only operate on `main`
 
 Use this only on a trusted development machine, because it will push commits automatically when code is clean.

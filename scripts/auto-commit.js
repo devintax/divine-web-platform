@@ -98,18 +98,10 @@ function shouldRun() {
 
 function runChecks() {
   try {
-    console.log('Running lint...');
-    run('npm run lint');
+    console.log('Running test suite...');
+    run('npm test');
   } catch (error) {
-    console.error('Lint failed. Changes will not be committed.');
-    return false;
-  }
-
-  try {
-    console.log('Running build...');
-    run('npm run build');
-  } catch (error) {
-    console.error('Build failed. Changes will not be committed.');
+    console.error('Tests failed. Changes will not be committed.');
     return false;
   }
 
