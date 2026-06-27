@@ -77,9 +77,10 @@ export default function IntakeHub() {
 }
 
 /* ===== FORMATION WIZARD ===== */
-function FormationWizard({ flags }: { flags: any }) {
+function FormationWizard({ flags }: { flags?: Record<string, boolean> }) {
+  void flags;
   const [step, setStep] = useState(0);
-  const [data, setData] = useState<any>({});
+  const [data, setData] = useState<any>({ state: "DE" });
   const [submitting, setSubmitting] = useState(false);
   const [done, setDone] = useState(false);
   const [resumePrompt, setResumePrompt] = useState(false);
@@ -92,12 +93,12 @@ function FormationWizard({ flags }: { flags: any }) {
   useEffect(() => {
     const s = localStorage.getItem("dfg-intake-formation-progress");
     if (s) {
-      try { const parsed = JSON.parse(s); if (Object.keys(parsed).length > 0) { setData(parsed); setResumePrompt(true); } } catch {}
+      try { const parsed = JSON.parse(s); if (Object.keys(parsed).length > 0) { setData({ state: "DE", ...parsed }); setResumePrompt(true); } } catch {}
     }
   }, []);
 
   function save(d: any) { setData(d); localStorage.setItem("dfg-intake-formation-progress", JSON.stringify(d)); }
-  function startOver() { localStorage.removeItem("dfg-intake-formation-progress"); setData({}); setStep(0); setResumePrompt(false); }
+  function startOver() { localStorage.removeItem("dfg-intake-formation-progress"); setData({ state: "DE" }); setStep(0); setResumePrompt(false); }
 
   // Debounced name check
   useEffect(() => {
@@ -132,7 +133,7 @@ function FormationWizard({ flags }: { flags: any }) {
       const eid = j.enrollmentId || j.enrollment?.id;
       await fetch("/api/workflows/formation", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, clientPhone: p.phone || "", businessName: data.businessName, entityType: data.entityType, state: data.state, useDivineAgent: data.agentChoice === "divine", intakeData: data })
+        body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, clientPhone: p.phone || "", businessName: data.businessName, entityType: data.entityType, state: data.state || "DE", useDivineAgent: data.agentChoice === "divine", intakeData: { ...data, state: data.state || "DE" } })
       });
       localStorage.removeItem("dfg-intake-formation-progress");
       toast.success("Formation submitted! A specialist will contact you within 1 business day.");
@@ -151,7 +152,7 @@ function FormationWizard({ flags }: { flags: any }) {
       <StepWizard steps={steps} currentStep={step} serviceColor={color} title={steps[step].label}
         onBack={() => setStep(s => Math.max(0, s - 1))}
         onContinue={() => { if (step < steps.length - 1) setStep(s => s + 1); else submit(); }}
-        canContinue={step === 0 ? !!data.businessName && data.businessName.length >= 3 && nameCheck.available !== false : step === 1 ? !!data.entityType : step === 2 ? !!data.state && !!data.ownerCount : !!data.agentChoice && !!data.confirmed}
+        canContinue={step === 0 ? !!data.businessName && data.businessName.length >= 3 && nameCheck.available !== false : step === 1 ? !!data.entityType : step === 2 ? !!(data.state || "DE") && !!data.ownerCount : !!data.agentChoice && !!data.confirmed}
         isLastStep={step === steps.length - 1}>
 
         {step === 0 && (
@@ -198,6 +199,7 @@ function FormationWizard({ flags }: { flags: any }) {
                 { value: "3-5", label: "3-5 owners" },
                 { value: "6+", label: "6+ owners" },
               ]} selected={data.ownerCount || ""} onSelect={v => save({ ...data, ownerCount: v })} />
+              {!data.ownerCount && <p className="text-xs font-bold text-amber-700 mt-2">Select how many owners the business will have to continue.</p>}
             </div>
             <div>
               <label className="text-sm font-bold text-ink block mb-2">Industry</label>
@@ -365,7 +367,19 @@ function TaxWizard({ flags }: { flags: any }) {
               </div>
               <div className="text-[11px] text-muted mt-3">⚠ Uploading documents now speeds up your return by 5-7 days.</div>
             </div>
-            <SecureUploadZone onUpload={async (files) => { save({ ...data, uploadedDocs: files.map(f => f.name) }); toast.success(`Uploaded ${files.length} file(s)`); }} label="Upload tax documents" helpText="W-2s, 1099s, receipts. AES-256 encrypted." />
+            <SecureUploadZone onUpload={async (files) => {
+              try {
+                const uploaded = await uploadFilesToVault(files, "tax");
+                save({
+                  ...data,
+                  uploadedDocs: [...(data.uploadedDocs || []), ...uploaded.map((doc) => doc.fileName)],
+                  vaultDocuments: [...(data.vaultDocuments || []), ...uploaded],
+                });
+                toast.success(`Uploaded ${uploaded.length} file(s) to your vault`);
+              } catch (e: any) {
+                toast.error(e.message || "Upload failed");
+              }
+            }} label="Upload tax documents" helpText="W-2s, 1099s, receipts. AES-256 encrypted." />
             {submitting && <p className="text-sm text-muted">Submitting…</p>}
           </div>
         )}
@@ -375,9 +389,11 @@ function TaxWizard({ flags }: { flags: any }) {
 }
 
 /* ===== INSURANCE WIZARD ===== */
-function InsuranceWizard({ flags }: { flags: any }) {
+function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
+  void flags;
   const [step, setStep] = useState(0);
   const [data, setData] = useState<any>({});
+  const [submission, setSubmission] = useState<{ enrollmentId?: string; workflowId?: string } | null>(null);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [showQuotes, setShowQuotes] = useState(false);
@@ -418,19 +434,23 @@ function InsuranceWizard({ flags }: { flags: any }) {
       const j = await r.json();
       if (!j.success) throw new Error(j.error);
       const eid = j.enrollmentId || j.enrollment?.id;
-      await fetch("/api/workflows/insurance", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      const workflowRes = await fetch("/api/workflows/insurance", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, clientPhone: p.phone || "", zipCode: data.zipCode, vehicleUsage: data.vehicleUsage, driverHistory: data.driverHistory })
       });
+      const workflowJson = await workflowRes.json().catch(() => ({}));
+      if (!workflowRes.ok) throw new Error(workflowJson.error || "Could not start insurance workflow");
+      setSubmission({ enrollmentId: eid, workflowId: workflowJson.workflowId || workflowJson.workflow?.workflowId });
       localStorage.removeItem("dfg-intake-insurance-progress");
       // Wait 2s for "comparing carriers" effect, then show quotes
       await new Promise(r => setTimeout(r, 2000));
+      toast.success("Insurance request submitted. Tracking is now available.");
     } catch (e: any) { toast.error(e.message || "Submission failed"); }
     setSubmitting(false);
   }
 
   if (showQuotes) return <InsuranceQuoteResults data={data} onDone={() => { setShowQuotes(false); setDone(true); }} />;
-  if (done) return <SuccessScreen service="Auto Insurance" crossSells={[
+  if (done) return <InsuranceSuccessScreen data={data} enrollmentId={submission?.enrollmentId} workflowId={submission?.workflowId} crossSells={[
     { icon: "✍️", label: "Notarize Documents", href: "/portal/intake?service=notary" },
   ]} />;
 
@@ -598,10 +618,66 @@ function InsuranceQuoteResults({ data, onDone }: { data: any; onDone: () => void
   );
 }
 
+function InsuranceSuccessScreen({
+  data,
+  enrollmentId,
+  workflowId,
+  crossSells = [],
+}: {
+  data: any;
+  enrollmentId?: string;
+  workflowId?: string;
+  crossSells?: { icon: string; label: string; href: string }[];
+}) {
+  const reference = enrollmentId ? enrollmentId.slice(0, 8).toUpperCase() : "PENDING";
+  return (
+    <div className="bg-white border border-border rounded-2xl p-8 space-y-5">
+      <div className="text-center space-y-2">
+        <div className="text-5xl">🚗</div>
+        <h2 className="text-2xl font-black text-ink">Auto insurance request submitted</h2>
+        <p className="text-sm text-muted">Reference #{reference}. A licensed broker will verify your rate and contact you within 1 business day.</p>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+        <div className="bg-soft rounded-xl p-3">
+          <div className="text-[10px] font-bold uppercase text-muted">Vehicle</div>
+          <div className="font-black text-ink">{data.vehicleYear} {data.vehicleMake}</div>
+        </div>
+        <div className="bg-soft rounded-xl p-3">
+          <div className="text-[10px] font-bold uppercase text-muted">Coverage</div>
+          <div className="font-black text-ink capitalize">{data.coverageLevel || "Standard"}</div>
+        </div>
+        <div className="bg-soft rounded-xl p-3">
+          <div className="text-[10px] font-bold uppercase text-muted">Workflow</div>
+          <div className="font-black text-ink truncate">{workflowId || "Starting"}</div>
+        </div>
+      </div>
+      <StatusTimeline items={[
+        { label: "Request submitted", done: true },
+        { label: "Broker review", done: false },
+        { label: "Carrier verification", done: false },
+        { label: "Policy bind-ready", done: false },
+      ]} />
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <a href="/portal/orders" className="px-4 py-3 bg-[#D97706] text-white rounded-xl text-sm font-bold text-center">Track Order</a>
+        <a href="/portal/chat" className="px-4 py-3 bg-white border border-border rounded-xl text-sm font-bold text-center hover:bg-soft">Chat with Broker</a>
+      </div>
+      {crossSells.length > 0 && (
+        <div className="pt-4 border-t border-border space-y-2">
+          <div className="text-xs font-bold uppercase text-muted">Recommended next</div>
+          {crossSells.map((cs, i) => (
+            <a key={i} href={cs.href} className="block px-4 py-3 bg-soft rounded-xl text-sm font-bold text-[#0B4DA2] hover:bg-blue-50">{cs.icon} {cs.label} →</a>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 /* ===== NOTARY WIZARD ===== */
 function NotaryWizard({ flags }: { flags: any }) {
   const [step, setStep] = useState(0);
   const [data, setData] = useState<any>({});
+  const [submission, setSubmission] = useState<{ enrollmentId?: string; workflowId?: string } | null>(null);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [resumePrompt, setResumePrompt] = useState(false);
@@ -632,10 +708,13 @@ function NotaryWizard({ flags }: { flags: any }) {
       const j = await r.json();
       if (!j.success) throw new Error(j.error);
       const eid = j.enrollmentId || j.enrollment?.id;
-      await fetch("/api/workflows/notary", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      const workflowRes = await fetch("/api/workflows/notary", {
+        method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
         body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, documentType: data.documentType, signerCount: parseInt(data.signerCount) || 1, scheduledTime: data.scheduledTime })
       });
+      const workflowJson = await workflowRes.json().catch(() => ({}));
+      if (!workflowRes.ok) throw new Error(workflowJson.error || "Could not start notary workflow");
+      setSubmission({ enrollmentId: eid, workflowId: workflowJson.workflowId || workflowJson.workflow?.workflowId });
       localStorage.removeItem("dfg-intake-notary-progress");
       toast.success("Notary session confirmed!");
       setDone(true);
@@ -645,7 +724,7 @@ function NotaryWizard({ flags }: { flags: any }) {
 
   if (done) {
     const sessionDate = data.scheduledTime ? new Date(data.scheduledTime) : new Date();
-    return <NotarySuccess data={data} sessionDate={sessionDate} flags={flags} />;
+    return <NotarySuccess data={data} sessionDate={sessionDate} flags={flags} enrollmentId={submission?.enrollmentId} workflowId={submission?.workflowId} />;
   }
 
   return (
@@ -679,7 +758,19 @@ function NotaryWizard({ flags }: { flags: any }) {
               </div>
             )}
             {data.documentType && (
-              <SecureUploadZone onUpload={async (files) => { save({ ...data, uploadedDocs: files.map(f => f.name) }); toast.success("Document uploaded"); }} label="Upload your document (recommended)" helpText="The notary can review your notary block beforehand. Prevents delays." />
+              <SecureUploadZone onUpload={async (files) => {
+                try {
+                  const uploaded = await uploadFilesToVault(files, "notary");
+                  save({
+                    ...data,
+                    uploadedDocs: [...(data.uploadedDocs || []), ...uploaded.map((doc) => doc.fileName)],
+                    vaultDocuments: [...(data.vaultDocuments || []), ...uploaded],
+                  });
+                  toast.success("Document uploaded to your vault");
+                } catch (e: any) {
+                  toast.error(e.message || "Upload failed");
+                }
+              }} label="Upload your document (recommended)" helpText="The notary can review your notary block beforehand. Prevents delays." />
             )}
           </div>
         )}
@@ -770,7 +861,7 @@ function NotaryWizard({ flags }: { flags: any }) {
   );
 }
 
-function NotarySuccess({ data, sessionDate, flags }: { data: any; sessionDate: Date; flags: any }) {
+function NotarySuccess({ data, sessionDate, flags, enrollmentId, workflowId }: { data: any; sessionDate: Date; flags: any; enrollmentId?: string; workflowId?: string }) {
   function addToCalendar() {
     downloadIcs({
       uid: `dfg-notary-${Date.now()}@dfgbusiness.com`,
@@ -783,16 +874,33 @@ function NotarySuccess({ data, sessionDate, flags }: { data: any; sessionDate: D
     }, "dfg-notary-session");
   }
   const isPropertyDoc = data.documentType === "Deed / Real Estate" || data.documentType === "Loan / Mortgage Docs";
+  const reference = enrollmentId ? enrollmentId.slice(0, 8).toUpperCase() : "PENDING";
   return (
     <div className="bg-white border border-border rounded-2xl p-8 text-center space-y-4">
       <div className="text-5xl">📅</div>
       <h2 className="text-xl font-black text-ink">Session confirmed!</h2>
       <p className="text-sm text-muted">{sessionDate.toLocaleString("en-US", { weekday: "long", month: "long", day: "numeric", hour: "numeric", minute: "2-digit", timeZoneName: "short" })}</p>
-      <p className="text-xs text-muted">Your video link will be emailed 30 minutes before your session. Documents are in your secure vault.</p>
+      <p className="text-xs text-muted">Reference #{reference}. Your video link will be emailed 30 minutes before your session. Documents are in your secure vault.</p>
+      <div className="bg-soft rounded-xl p-4 text-left">
+        <div className="flex items-center justify-between gap-3 mb-3">
+          <span className="text-xs font-black text-ink uppercase">Workflow Tracking</span>
+          <span className="text-[10px] font-bold text-muted truncate">{workflowId || "Starting"}</span>
+        </div>
+        <StatusTimeline items={[
+          { label: "Intake submitted", done: true },
+          { label: "Document verified", done: (data.vaultDocuments || []).length > 0 },
+          { label: "KYC verified", done: false },
+          { label: "Session complete", done: false },
+        ]} />
+      </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
         <button onClick={addToCalendar} className="px-3 py-2 bg-white border border-border rounded-lg text-xs font-bold hover:bg-soft">+ Google Calendar</button>
         <button onClick={addToCalendar} className="px-3 py-2 bg-white border border-border rounded-lg text-xs font-bold hover:bg-soft">+ Outlook</button>
         <button onClick={addToCalendar} className="px-3 py-2 bg-white border border-border rounded-lg text-xs font-bold hover:bg-soft">+ Apple Calendar</button>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+        <a href="/portal/orders" className="px-4 py-3 bg-[#C8102E] text-white rounded-xl text-sm font-bold">Track Notary Order</a>
+        <a href="/portal/vault" className="px-4 py-3 bg-white border border-border rounded-xl text-sm font-bold hover:bg-soft">View Vault Documents</a>
       </div>
       {isPropertyDoc && !flags.hasTax && (
         <div className="bg-amber-50 border border-amber-200 rounded-xl p-3 text-xs text-amber-900">
@@ -804,7 +912,8 @@ function NotarySuccess({ data, sessionDate, flags }: { data: any; sessionDate: D
 }
 
 /* ===== BOOKKEEPING WIZARD ===== */
-function BookkeepingWizard({ flags }: { flags: any }) {
+function BookkeepingWizard({ flags }: { flags?: Record<string, boolean> }) {
+  void flags;
   const [step, setStep] = useState(0);
   const [data, setData] = useState<any>({});
   const [done, setDone] = useState(false);
@@ -958,7 +1067,19 @@ function BookkeepingWizard({ flags }: { flags: any }) {
                 <div>✓ Chart of accounts (if you have one)</div>
               </div>
             </div>
-            <SecureUploadZone onUpload={async (files) => { save({ ...data, uploadedDocs: files.map(f => f.name) }); toast.success("Statements uploaded"); }} label="Upload statements" helpText="Drag all files at once. PDF, CSV, XLS." />
+            <SecureUploadZone onUpload={async (files) => {
+              try {
+                const uploaded = await uploadFilesToVault(files, "bookkeeping");
+                save({
+                  ...data,
+                  uploadedDocs: [...(data.uploadedDocs || []), ...uploaded.map((doc) => doc.fileName)],
+                  vaultDocuments: [...(data.vaultDocuments || []), ...uploaded],
+                });
+                toast.success("Statements uploaded to your vault");
+              } catch (e: any) {
+                toast.error(e.message || "Upload failed");
+              }
+            }} label="Upload statements" helpText="Drag all files at once. PDF, CSV, XLS." />
             <OptionGrid options={[
               { value: "connect_now", label: "🔗 Connect Bank Account", description: "Read-only Plaid connection (coming soon)" },
               { value: "manual", label: "📤 Manual Upload Monthly", description: "We'll send a secure link each month" },
@@ -973,6 +1094,53 @@ function BookkeepingWizard({ flags }: { flags: any }) {
 }
 
 /* ===== SHARED UI HELPERS ===== */
+type VaultUploadResult = {
+  documentId: string;
+  fileName: string;
+  category: string;
+  status: string;
+};
+
+async function uploadFilesToVault(files: File[], category: "tax" | "bookkeeping" | "notary"): Promise<VaultUploadResult[]> {
+  const uploaded: VaultUploadResult[] = [];
+
+  for (const file of files) {
+    const body = new FormData();
+    body.append("file", file);
+    body.append("category", category);
+
+    const res = await fetch("/api/vault/upload", {
+      method: "POST",
+      credentials: "include",
+      body,
+    });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json.success) throw new Error(json.error || `Could not upload ${file.name}`);
+
+    uploaded.push({
+      documentId: json.documentId,
+      fileName: json.fileName || file.name,
+      category,
+      status: json.status || "quarantine",
+    });
+  }
+
+  return uploaded;
+}
+
+function StatusTimeline({ items }: { items: { label: string; done: boolean }[] }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-4 gap-2">
+      {items.map((item, i) => (
+        <div key={item.label} className={`rounded-xl border p-3 ${item.done ? "bg-green-50 border-green-200 text-green-800" : "bg-white border-border text-muted"}`}>
+          <div className="text-[10px] font-black uppercase">Step {i + 1}</div>
+          <div className="text-xs font-bold mt-1">{item.done ? "✓ " : ""}{item.label}</div>
+        </div>
+      ))}
+    </div>
+  );
+}
+
 function ResumeBanner({ onResume, onStartOver }: { onResume: () => void; onStartOver: () => void }) {
   return (
     <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 mb-4 flex items-center justify-between flex-wrap gap-2">

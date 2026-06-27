@@ -1,10 +1,9 @@
 import { proxyActivities, sleep, defineSignal, setHandler } from '@temporalio/workflow';
-import type { EmailActivities, DatabaseActivities, StorageActivities, PaymentActivities } from '../activities/types';
+import type { EmailActivities, DatabaseActivities, StorageActivities } from '../activities/types';
 
 const email   = proxyActivities<EmailActivities>({ startToCloseTimeout: '30s' });
 const db      = proxyActivities<DatabaseActivities>({ startToCloseTimeout: '30s' });
 const storage = proxyActivities<StorageActivities>({ startToCloseTimeout: '30s' });
-const payment = proxyActivities<PaymentActivities>({ startToCloseTimeout: '60s' });
 
 export const taxDocumentsUploadedSignal = defineSignal<[string[]]>('taxDocumentsUploaded');
 export const reviewCompleteSignal    = defineSignal<[void]>('reviewComplete');
@@ -12,18 +11,21 @@ export const clientApprovedSignal    = defineSignal<[void]>('clientApproved');
 
 export async function taxPreparationWorkflow(params: {
   enrollmentId: string; userId: string; clientEmail: string; clientName: string;
-  filingStatus: string; incomeSources: string[]; deductions: string[];
+  filingStatus?: string; incomeSources?: string[]; deductions?: string[];
 }): Promise<void> {
+  const incomeSources = params.incomeSources || [];
+  const deductions = params.deductions || [];
+
   await db.updateEnrollmentStatus({ enrollmentId: params.enrollmentId, status: 'pending', progress: 10 });
   await email.sendWelcomeEmail({ to: params.clientEmail, name: params.clientName, service: 'Tax Preparation' });
-  await email.sendStaffNotificationEmail({ service: 'Tax Preparation', clientName: params.clientName, clientEmail: params.clientEmail, pod: 'Tax Pod', enrollmentId: params.enrollmentId, intakeSummary: { filingStatus: params.filingStatus, incomeSources: params.incomeSources, deductions: params.deductions } });
+  await email.sendStaffNotificationEmail({ service: 'Tax Preparation', clientName: params.clientName, clientEmail: params.clientEmail, pod: 'Tax Pod', enrollmentId: params.enrollmentId, intakeSummary: { filingStatus: params.filingStatus || 'unknown', incomeSources, deductions } });
 
   const requiredDocs: string[] = [];
-  if (params.incomeSources.includes('W-2 (Employee)')) requiredDocs.push('W-2 form(s)');
-  if (params.incomeSources.includes('1099 / Freelance')) requiredDocs.push('All 1099 forms');
-  if (params.incomeSources.includes('Rental Income')) requiredDocs.push('Schedule E docs');
-  if (params.incomeSources.includes('Stocks / Crypto')) requiredDocs.push('1099-B or crypto CSV');
-  if (params.deductions.includes('Bought a Home')) requiredDocs.push('Form 1098');
+  if (incomeSources.includes('W-2 (Employee)')) requiredDocs.push('W-2 form(s)');
+  if (incomeSources.includes('1099 / Freelance')) requiredDocs.push('All 1099 forms');
+  if (incomeSources.includes('Rental Income')) requiredDocs.push('Schedule E docs');
+  if (incomeSources.includes('Stocks / Crypto')) requiredDocs.push('1099-B or crypto CSV');
+  if (deductions.includes('Bought a Home')) requiredDocs.push('Form 1098');
   requiredDocs.push('Prior year tax return', 'Government-issued Photo ID', 'SS cards for all dependents');
 
   const uploadLink = await storage.generateUploadLink({ userId: params.userId, recipientEmail: params.clientEmail, purpose: 'Tax Documents Upload', expiresInHours: 72 });

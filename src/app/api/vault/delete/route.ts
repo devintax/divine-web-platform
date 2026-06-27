@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
   if (!doc) return NextResponse.json({ error: "Document not found" }, { status: 404 });
   if (doc.user_id !== session.profileId) return NextResponse.json({ error: "Access denied" }, { status: 403 });
 
-  const { error } = await admin.from("vault_documents").update({ is_deleted: true }).eq("id", id);
+  const { error } = await admin.from("vault_documents").update({ is_deleted: true, deleted_at: new Date().toISOString() }).eq("id", id);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
   await logAudit({ action: "vault_document_deleted", userId: session.profileId, resourceType: "vault_document", resourceId: id, metadata: { display_name: doc.display_name } });

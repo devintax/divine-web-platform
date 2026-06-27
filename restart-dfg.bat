@@ -32,23 +32,43 @@ if errorlevel 1 (
 echo   OK Docker is running.
 
 REM --- 3. Start InsForge containers ----------------------------
-echo [3/6] Ensuring InsForge containers are up...
-docker ps --filter "name=insforge-backend-insforge" --format "{{.Names}}" | findstr "insforge" >nul
+echo [3/6] Ensuring InsForge backend is up using stable production compose...
+pushd "%ROOT%..\insforge-backend" >nul 2>&1
 if errorlevel 1 (
-    echo   InsForge not running. Starting via docker compose...
-    pushd "%ROOT%..\insforge-backend" >nul 2>&1
-    if errorlevel 1 (
-        echo   WARNING: ..\insforge-backend not found. Skipping InsForge auto-start.
-    ) else (
-        docker compose up -d
-        popd
-    )
-) else (
-    echo   OK InsForge containers already running.
+    echo   ERROR: ..\insforge-backend not found. Cannot start InsForge.
+    pause
+    exit /b 1
 )
 
+docker compose -f docker-compose.prod.yml up -d --no-build
+if errorlevel 1 (
+    echo   Production image missing or stale. Building InsForge image...
+    docker compose -f docker-compose.prod.yml up -d --build
+    if errorlevel 1 (
+        popd
+        echo   ERROR: InsForge production compose failed.
+        pause
+        exit /b 1
+    )
+)
+
+docker update --restart unless-stopped insforge-backend-postgres-1 insforge-backend-postgrest-1 insforge-backend-deno-1 insforge-backend-insforge-1 >nul 2>&1
+popd
+
 REM Verify InsForge health
-timeout /t 3 /nobreak >nul
+echo   Waiting for InsForge API at http://127.0.0.1:7130/api/health...
+set /a insforge_tries=0
+:wait_insforge
+timeout /t 2 /nobreak >nul
+curl -s -o nul http://127.0.0.1:7130/api/health
+if not errorlevel 1 goto insforge_ready
+set /a insforge_tries+=1
+if %insforge_tries% LSS 30 goto wait_insforge
+echo   ERROR: InsForge API did not become healthy in 60s.
+docker logs --tail 40 insforge-backend-insforge-1
+pause
+exit /b 1
+:insforge_ready
 curl -s -o nul -w "   InsForge health check: %%{http_code}\n" http://127.0.0.1:7130/api/health
 
 REM --- 4. Verify Temporal is running ---------------------------

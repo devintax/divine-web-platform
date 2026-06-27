@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { can } from "@/lib/rbac/can";
 
 export async function GET(req: NextRequest) {
   const session = await getAuthSession();
@@ -13,9 +14,13 @@ export async function GET(req: NextRequest) {
   const { data: doc, error } = await admin.from("vault_documents").select("*").eq("id", docId).single();
   if (error || !doc) return NextResponse.json({ error: "Document not found" }, { status: 404 });
 
-  const { data: profile } = await admin.from("user_profiles").select("role").eq("id", session.profileId).single();
-  const isStaff = profile && ["manager","accountant","specialist","broker","tax_intern","support"].includes(profile.role!);
-  if (doc.user_id !== session.profileId && !isStaff) return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  if (doc.is_deleted) return NextResponse.json({ error: "Document not found" }, { status: 404 });
+  if (doc.user_id !== session.profileId && !can(session.role, "vault_download_file")) {
+    return NextResponse.json({ error: "Access denied" }, { status: 403 });
+  }
+  if (doc.status !== "clean" && doc.status !== "archived") {
+    return NextResponse.json({ error: "Document is not cleared for download" }, { status: 409 });
+  }
 
-  return NextResponse.json({ url: doc.storage_url || doc.storage_path, fileName: doc.display_name });
+  return NextResponse.json({ url: `/api/vault/download/${doc.id}`, fileName: doc.display_name || doc.file_name });
 }

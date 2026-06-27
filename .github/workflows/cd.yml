@@ -1,0 +1,67 @@
+name: CD - Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["CI - Lint, Type-check, Build"]
+    branches: [main]
+    types: [completed]
+  workflow_dispatch: {}
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to DFG server
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Deploy over SSH
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.SERVER_HOST }}
+          username: ${{ secrets.SERVER_USER }}
+          key: ${{ secrets.SERVER_SSH_KEY }}
+          port: ${{ secrets.SERVER_PORT || '22' }}
+          timeout: 25m
+          script: |
+            set -e
+
+            echo "Starting DFG production deployment"
+            echo "Commit: ${{ github.sha }}"
+
+            cd "${{ secrets.SERVER_APP_PATH }}"
+
+            git fetch origin main
+            git checkout main
+            git pull --ff-only origin main
+
+            npm ci
+            npm run type-check
+            npm run lint
+            npm run worker:build
+            npm run build
+
+            pm2 reload dfg-web --update-env || pm2 start npm --name dfg-web -- start
+            pm2 reload dfg-worker --update-env || pm2 start npm --name dfg-worker -- run worker
+            pm2 save
+
+            echo "Deployment complete"
+
+      - name: Deployment success
+        if: success()
+        run: |
+          echo "Production deployment succeeded"
+          echo "Commit: ${{ github.sha }}"
+
+      - name: Deployment failure
+        if: failure()
+        run: |
+          echo "Production deployment failed"
+          echo "Commit: ${{ github.sha }}"

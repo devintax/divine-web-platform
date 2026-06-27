@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       message: available ? `${name} is available in ${state || "Delaware"}` : `${name} is taken`,
       suggestion,
     });
-  } catch (e: any) {
+  } catch {
     return NextResponse.json({ valid: false, available: false, error: "Check failed" }, { status: 500 });
   }
 }

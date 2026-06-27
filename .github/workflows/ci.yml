@@ -1,0 +1,81 @@
+name: CI - Lint, Type-check, Build
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+  workflow_dispatch: {}
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    name: Lint, Type-check, Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Create CI environment file
+        run: |
+          cat > .env.local <<'EOF'
+          NEXT_PUBLIC_APP_URL=https://platform.dfgbusiness.com
+          NEXT_PUBLIC_INSFORGE_URL=http://localhost:7130
+          NEXT_PUBLIC_INSFORGE_ANON_KEY=ci-placeholder
+          INSFORGE_URL=http://localhost:7130
+          INSFORGE_ANON_KEY=ci-placeholder
+          INSFORGE_SERVICE_ROLE_KEY=ci-placeholder
+          TEMPORAL_ADDRESS=localhost:7233
+          TEMPORAL_NAMESPACE=divine-financial
+          RESEND_API_KEY=re_placeholder
+          RESEND_FROM_EMAIL=noreply@dfgbusiness.com
+          SMS_PROVIDER=textbee
+          SMS_FALLBACK_PROVIDER=vendel
+          VENDEL_API_URL=https://api-vendel.dfgworld.net
+          VENDEL_API_KEY=ci-placeholder
+          VENDEL_DEVICE_ID=ci-placeholder
+          TEXTBEE_API_URL=https://api-textbee.dfgworld.net
+          TEXTBEE_API_KEY=ci-placeholder
+          TEXTBEE_DEVICE_ID=ci-placeholder
+          STRIPE_SECRET_KEY=sk_test_placeholder
+          STRIPE_WEBHOOK_SECRET=whsec_placeholder
+          NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY=pk_test_placeholder
+          EOF
+
+      - name: TypeScript type-check
+        run: npm run type-check
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build Temporal worker
+        run: npm run worker:build
+
+      - name: Build Next.js
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Upload build artifact
+        if: github.ref == 'refs/heads/main' && success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nextjs-build-${{ github.sha }}
+          path: |
+            .next/
+            public/
+          retention-days: 1

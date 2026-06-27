@@ -173,8 +173,8 @@ function WhyUs() {
             <div className="opacity-85 mt-2 text-sm">Let us simplify your financial journey. Contact us today.</div>
           </div>
           <div className="flex flex-col sm:flex-row gap-3 w-full sm:w-auto">
-            <Link href="/contact"><Btn variant="white" sz="lg" full className="sm:w-auto min-h-[48px]">Contact Us</Btn></Link>
-            <Link href="/services"><Btn variant="dark" sz="lg" full className="sm:w-auto min-h-[48px]">Our Services</Btn></Link>
+            <Link href="/contact"><Btn as="span" variant="white" sz="lg" full className="sm:w-auto min-h-[48px]">Contact Us</Btn></Link>
+            <Link href="/services"><Btn as="span" variant="dark" sz="lg" full className="sm:w-auto min-h-[48px]">Our Services</Btn></Link>
           </div>
         </div>
       </div>

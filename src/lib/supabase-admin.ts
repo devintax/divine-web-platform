@@ -1,4 +1,14 @@
-import { insforgeServer } from "./insforge-client";
+import { createClient } from "@insforge/sdk";
+
+const INSFORGE_URL = process.env.NEXT_PUBLIC_INSFORGE_URL!;
+const ANON_KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!;
+const SERVER_KEY = process.env.INSFORGE_SERVICE_KEY || ANON_KEY;
+
+const insforgeServer = createClient({
+  baseUrl: INSFORGE_URL,
+  anonKey: SERVER_KEY,
+  isServerMode: true,
+});
 
 /**
  * Admin server-side InsForge client with full DB access.
@@ -27,7 +37,10 @@ export function getSupabaseAdmin() {
             for (const p of arr) await b.remove(p);
             return { data: { message: "Deleted" }, error: null };
           },
-          createSignedUrl: async () => ({ data: { signedUrl: "" }, error: null }),
+          createSignedUrl: async (path: string) => {
+            const publicUrl = typeof (b as any).getPublicUrl === "function" ? (b as any).getPublicUrl(path) : null;
+            return { data: { signedUrl: publicUrl?.data?.publicUrl || publicUrl?.publicUrl || "" }, error: null };
+          },
         };
       },
     },

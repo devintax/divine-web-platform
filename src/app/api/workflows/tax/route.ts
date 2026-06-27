@@ -1,15 +1,21 @@
-import { NextRequest, NextResponse } from "next/server";
-import { startWorkflow } from "@/lib/temporal";
+import { NextRequest } from "next/server";
+import { startServiceWorkflow, signalServiceWorkflow } from "@/lib/api/workflow-route";
+import { TASK_QUEUES } from "@/lib/temporal";
 
 export async function POST(req: NextRequest) {
-  try {
-    const body = await req.json();
-    const { enrollmentId, userId, clientEmail, clientName, filingStatus, incomeSources, deductions } = body;
-    const workflowId = await startWorkflow("taxPreparationWorkflow", "dfg-tax", `tax-${enrollmentId}`, [{
-      enrollmentId, userId, clientEmail, clientName, filingStatus, incomeSources, deductions,
-    }]);
-    return NextResponse.json({ success: true, workflowId }, { status: 201 });
-  } catch (e: any) {
-    return NextResponse.json({ error: e.message }, { status: 500 });
-  }
+  return startServiceWorkflow(req, {
+    service: "tax",
+    workflowType: "taxPreparationWorkflow",
+    taskQueue: TASK_QUEUES.TAX,
+    idField: "enrollmentId",
+  });
+}
+
+export async function PATCH(req: NextRequest) {
+  return signalServiceWorkflow(req, {
+    service: "tax",
+    workflowType: "taxPreparationWorkflow",
+    taskQueue: TASK_QUEUES.TAX,
+    idField: "enrollmentId",
+  });
 }

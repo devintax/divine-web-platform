@@ -1,5 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 
+export const config = {
+  matcher: ["/portal/:path*", "/login", "/signup"],
+};
+
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 

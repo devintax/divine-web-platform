@@ -5,12 +5,15 @@ let client: Client | null = null;
 
 export async function getTemporalClient(): Promise<Client> {
   if (client) return client;
+  const address = (process.env.TEMPORAL_ADDRESS || "localhost:7233").trim();
+  const namespace = (process.env.TEMPORAL_NAMESPACE || "divine-financial").trim();
+
   const connection = await Connection.connect({
-    address: process.env.TEMPORAL_ADDRESS || "localhost:7233",
+    address,
   });
   client = new Client({
     connection,
-    namespace: process.env.TEMPORAL_NAMESPACE || "default",
+    namespace,
   });
   return client;
 }

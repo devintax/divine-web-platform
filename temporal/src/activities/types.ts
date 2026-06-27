@@ -21,7 +21,7 @@ export interface DatabaseActivities {
 
 export interface StorageActivities {
   generateUploadLink(params: { userId: string; recipientEmail: string; purpose: string; expiresInHours: number }): Promise<string>;
-  simulateMalwareScan(documentId: string): Promise<boolean>;
+  scanAndPromoteDocument(params: { documentId: string }): Promise<{ status: string }>;
 }
 
 export interface PaymentActivities {

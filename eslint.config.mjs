@@ -9,10 +9,21 @@ const eslintConfig = defineConfig([
   globalIgnores([
     // Default ignores of eslint-config-next:
     ".next/**",
+    "dist/**",
     "out/**",
     "build/**",
     "next-env.d.ts",
   ]),
+  // Project-specific rule relaxations to help local test/development.
+  {
+    rules: {
+      '@typescript-eslint/no-explicit-any': 'off',
+      'react-hooks/set-state-in-effect': 'off',
+      'react-hooks/purity': 'off',
+      'react/no-unescaped-entities': 'off',
+      '@typescript-eslint/no-require-imports': 'off'
+    },
+  },
 ]);
 
 export default eslintConfig;

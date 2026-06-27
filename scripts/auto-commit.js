@@ -1,4 +1,4 @@
-const { execSync, spawnSync } = require('child_process');
+const { execSync } = require('child_process');
 const fs = require('fs');
 const path = require('path');
 
@@ -100,7 +100,7 @@ function runChecks() {
   try {
     console.log('Running test suite...');
     run('npm test');
-  } catch (error) {
+  } catch {
     console.error('Tests failed. Changes will not be committed.');
     return false;
   }
@@ -141,8 +141,8 @@ function processChanges() {
     console.log('Pushing changes to origin/main...');
     run('git push origin main');
     console.log('Auto-commit completed successfully.');
-  } catch (error) {
-    console.error('Auto-commit failed:', error.message || error);
+  } catch {
+    console.error('Auto-commit failed');
   }
 }
 

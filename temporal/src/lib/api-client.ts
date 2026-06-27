@@ -16,7 +16,8 @@ async function fetchInsForge(path: string, options?: RequestInit) {
 
 export async function dbFrom(table: string) {
   return {
-    select: async (selector: string) => {
+    select: async (_selector: string) => {
+      void _selector;
       const data = await fetchInsForge(`/api/v1/entity/${table}`);
       return { data: data || [], error: null };
     },
@@ -34,12 +35,16 @@ export async function dbFrom(table: string) {
     },
     delete: async () => ({ eq: async () => ({}) }),
     order: async () => dbFrom(table),
-    limit: async (n: number) => dbFrom(table), // simplified
+    limit: async (_n: number) => {
+      void _n;
+      return dbFrom(table);
+    }, // simplified
     eq: (column: string, value: unknown) => {
       const self = dbFrom(table);
       return { ...self,
         single: async () => {
-          const { data } = await self;
+          const resp: any = await self;
+          const data = resp.data;
           const rows = data || [];
           const matches = rows.filter((r: any) => r[column] === value || r[column] == value);
           return { data: matches[0] || null, error: null };
@@ -50,7 +55,8 @@ export async function dbFrom(table: string) {
       const self = dbFrom(table);
       return { ...self,
         single: async () => {
-          const { data } = await self;
+          const resp: any = await self;
+          const data = resp.data;
           const rows = data || [];
           const matches = rows.filter((r: any) => values.includes(r[column]));
           return { data: matches[0] || null, error: null };

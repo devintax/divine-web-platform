@@ -26,12 +26,24 @@ interface BtnProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   sz?: Size;
   icon?: string;
   full?: boolean;
+  as?: "button" | "span";
 }
 
-export function Btn({ children, variant = "primary", sz = "md", icon, full, className = "", ...props }: BtnProps) {
+export function Btn({ children, variant = "primary", sz = "md", icon, full, as = "button", className = "", ...props }: BtnProps) {
+  const classes = `inline-flex items-center justify-center gap-1.5 rounded-xl font-bold cursor-pointer border-none transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 ${variantClasses[variant]} ${sizeClasses[sz]} ${full ? "w-full" : ""} ${className}`;
+
+  if (as === "span") {
+    return (
+      <span className={classes}>
+        {icon && <span className="text-inherit">{icon}</span>}
+        {children}
+      </span>
+    );
+  }
+
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl font-bold cursor-pointer border-none transition-all duration-150 hover:opacity-90 hover:-translate-y-px active:translate-y-0 ${variantClasses[variant]} ${sizeClasses[sz]} ${full ? "w-full" : ""} ${className}`}
+      className={classes}
       {...props}
     >
       {icon && <span className="text-inherit">{icon}</span>}

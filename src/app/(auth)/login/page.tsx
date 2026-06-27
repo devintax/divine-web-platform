@@ -27,7 +27,7 @@ function LoginContent() {
     setError(""); setLoading(true);
     try {
       const res = await fetch("/api/auth/login", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password }) });
-      const data = await res.json();
+      const data = await res.json().catch(() => ({ error: "Login service returned an unreadable response." }));
       if (!res.ok) { setError(data.error || "Login failed"); setLoading(false); return; }
       if (data.userId) {
         document.cookie = `d_user_id=${data.userId};path=/;SameSite=Lax`;

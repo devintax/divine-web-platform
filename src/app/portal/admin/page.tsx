@@ -1,6 +1,19 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
+
+const SERVICE_DESKS = [
+  { label: "Tax Pod", href: "/portal/admin/tax", color: "#16A34A", body: "Tax prep, four-eyes review, filing approvals" },
+  { label: "Formation Desk", href: "/portal/admin/formation", color: "#0B4DA2", body: "Entity setup, state filings, EIN delivery" },
+  { label: "Broker Station", href: "/portal/admin/insurance", color: "#D97706", body: "Quote review, carrier updates, policy delivery" },
+  { label: "Notary Console", href: "/portal/admin/notary", color: "#C8102E", body: "Document review, KYC, session completion" },
+  { label: "Bookkeeping Pod", href: "/portal/admin/books", color: "#7C3AED", body: "Monthly books, reconciliation, reports" },
+  { label: "SMS Gateway", href: "/portal/admin/sms-status", color: "#0F766E", body: "Vendel/TextBee health, manual test sends, delivery tracking" },
+  { label: "Voice Receptionist", href: "/portal/admin/voice", color: "#7C2D12", body: "Manual voice intake and call capture" },
+  { label: "Call Logs", href: "/portal/admin/call-logs", color: "#374151", body: "Inbound calls, summaries, and follow-up history" },
+  { label: "Knowledge Base", href: "/portal/admin/knowledge-base", color: "#9333EA", body: "Staff answers for concierge and support" },
+];
 
 export default function AdminPage() {
   const [cases, setCases] = useState<any[]>([]);
@@ -32,7 +45,7 @@ export default function AdminPage() {
       const res = await fetch("/api/admin/signal", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ workflowId, signalName }) });
       const data = await res.json();
       alert(data.success ? "Signal sent!" : `Error: ${data.error}`);
-    } catch (e) { alert("Failed to send signal"); }
+    } catch { alert("Failed to send signal"); }
   }
 
   async function changeRole(userId: string, newRole: string) {
@@ -65,6 +78,17 @@ export default function AdminPage() {
             <div className="text-3xl font-black mt-1">{s.value}</div>
           </div>
         ))}
+      </div>
+      <div>
+        <h2 className="text-sm font-black text-ink mb-2">Service Desks</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-3">
+          {SERVICE_DESKS.map((desk) => (
+            <Link key={desk.href} href={desk.href} className="bg-white border border-border rounded-2xl p-4 shadow-sm hover:-translate-y-0.5 transition-transform no-underline" style={{ borderTop: `3px solid ${desk.color}` }}>
+              <div className="text-sm font-black text-ink">{desk.label}</div>
+              <div className="text-[11px] text-muted mt-1 leading-relaxed">{desk.body}</div>
+            </Link>
+          ))}
+        </div>
       </div>
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl">
         {["queue","audit", ...(isSuper ? ["users"] : [])].map(t => (

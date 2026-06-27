@@ -21,26 +21,32 @@ try {
 }
 
 # --- 2. InsForge Backend ---
-Write-Host "[2/6] Starting InsForge Backend..." -ForegroundColor Cyan
+Write-Host "[2/6] Starting InsForge Backend (stable production compose)..." -ForegroundColor Cyan
 Set-Location $insforgeBackend
-$insforgeContainers = docker ps -q -f name="insforge"
-if (-not $insforgeContainers) {
-    docker compose -f docker-compose.prod.yml up -d
-    Write-Host "InsForge backend containers starting..." -ForegroundColor Yellow
-} else {
-    Write-Host "InsForge backend already running." -ForegroundColor Green
+docker compose -f docker-compose.prod.yml up -d --no-build
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "Production image missing or stale. Building InsForge image..." -ForegroundColor Yellow
+    docker compose -f docker-compose.prod.yml up -d --build
+    if ($LASTEXITCODE -ne 0) {
+        Write-Host "ERROR: InsForge production compose failed." -ForegroundColor Red
+        exit 1
+    }
 }
+docker update --restart unless-stopped insforge-backend-postgres-1 insforge-backend-postgrest-1 insforge-backend-deno-1 insforge-backend-insforge-1 | Out-Null
+
 $insforgeHealth = $null
 $retries = 0
 while (-not $insforgeHealth -and $retries -lt 30) {
-    Start-Sleep -Seconds 1
-    try { $insforgeHealth = Invoke-WebRequest -Uri "http://127.0.0.1:7130/health" -UseBasicParsing -TimeoutSec 2 } catch {}
+    Start-Sleep -Seconds 2
+    try { $insforgeHealth = Invoke-WebRequest -Uri "http://127.0.0.1:7130/api/health" -TimeoutSec 2 } catch {}
     $retries++
 }
 if ($insforgeHealth -and $insforgeHealth.StatusCode -eq 200) {
-    Write-Host "InsForge is healthy at http://127.0.0.1:7130" -ForegroundColor Green
+    Write-Host "InsForge is healthy at http://127.0.0.1:7130/api/health" -ForegroundColor Green
 } else {
-    Write-Host "WARNING: InsForge health check failed. Continuing anyway..." -ForegroundColor Yellow
+    Write-Host "ERROR: InsForge health check failed. Recent app logs:" -ForegroundColor Red
+    docker logs --tail 40 insforge-backend-insforge-1
+    exit 1
 }
 
 # --- 3. Temporal Server ---
@@ -67,7 +73,7 @@ Write-Host "[6/6] Starting ngrok tunnel..." -ForegroundColor Cyan
 $ngrokProcess = Start-Process ngrok -ArgumentList "http", "$ngrokPort" -WindowStyle Hidden -PassThru
 Start-Sleep -Seconds 3
 try {
-    $tunnels = (Invoke-WebRequest -Uri "http://127.0.0.1:4040/api/tunnels" -UseBasicParsing -TimeoutSec 5).Content | ConvertFrom-Json
+    $tunnels = (Invoke-WebRequest -Uri "http://127.0.0.1:4040/api/tunnels" -TimeoutSec 5).Content | ConvertFrom-Json
     $publicUrl = $tunnels.tunnels[0].public_url
     Write-Host ""
     Write-Host "  ngrok public URL: $publicUrl" -ForegroundColor Magenta
@@ -83,7 +89,8 @@ Write-Host "====================================" -ForegroundColor DarkBlue
 Write-Host ""
 Write-Host "  Frontend:     http://localhost:$ngrokPort" -ForegroundColor Blue
 if ($publicUrl) { Write-Host "  Public URL:   $publicUrl" -ForegroundColor Magenta }
-Write-Host "  InsForge API: http://127.0.0.1:7131" -ForegroundColor Blue
+Write-Host "  InsForge UI:  http://127.0.0.1:7131" -ForegroundColor Blue
+Write-Host "  InsForge API: http://127.0.0.1:7130/api" -ForegroundColor Blue
 Write-Host "  Temporal:     localhost:7233" -ForegroundColor Green
 Write-Host ""
 Write-Host "Press any key to stop all servers..." -ForegroundColor Yellow

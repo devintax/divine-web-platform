@@ -1,5 +1,6 @@
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import type { UserRole } from "@/lib/rbac/roles";
 
 export async function getAuthSession() {
   const store = await cookies();
@@ -18,7 +19,7 @@ export async function getAuthSession() {
   return {
     authId,
     profileId: profile.id,
-    role: profile.role,
+    role: profile.role as UserRole,
     legalName: profile.legal_name,
     email: profile.email,
     phone: profile.phone,
@@ -35,6 +36,13 @@ export async function verifyStaff() {
 }
 
 export async function verifySuperAdmin() {
+  const session = await getAuthSession();
+  if (!session) return null;
+  if (session.role !== "super_admin") return null;
+  return session;
+}
+
+export async function verifyManagerOrSuperAdmin() {
   const session = await getAuthSession();
   if (!session) return null;
   if (session.role !== "super_admin" && session.role !== "manager") return null;

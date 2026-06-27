@@ -1,15 +1,16 @@
 import { NextResponse } from "next/server";
 import { verifyStaff } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { can } from "@/lib/rbac/can";
 
 export async function GET() {
   const session = await verifyStaff();
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+  if (!session || !can(session.role, "view_case_queue")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
 
   const admin = getSupabaseAdmin();
   const { data, error } = await admin.from("service_enrollments").select("id,user_id,service_type,status,progress,created_at,updated_at")
     .in("status", ["pending","active","draft"]).order("created_at", { ascending: false }).limit(50);
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 });
+  if (error) return NextResponse.json({ error: "Could not load case queue" }, { status: 500 });
 
   const rows = (data || []) as any[];
   const ids = [...new Set(rows.map((d) => d.user_id))];

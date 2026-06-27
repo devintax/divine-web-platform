@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState, useRef } from "react";
+import { UniversalSearch } from "@/components/portal/admin/UniversalSearch";
 
 const ALL_NAV = [
   { path: "/portal", icon: "⚡", label: "Dashboard", exact: true },
@@ -86,6 +87,11 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             <Link href="/" className="md:hidden text-lg font-black text-[#0B4DA2]">DFG</Link>
             <span className="hidden md:block text-xs text-muted">{getBreadcrumb(pathname)}</span>
           </div>
+          {isStaff && pathname.startsWith("/portal/admin") && (
+            <div className="hidden lg:block flex-1 max-w-md mx-4">
+              <UniversalSearch />
+            </div>
+          )}
           {profile && (
             <div ref={menuRef} className="relative">
               <button onClick={() => setShowMenu(!showMenu)} className="w-9 h-9 rounded-full bg-[#0B4DA2] text-white text-xs font-black grid place-items-center hover:bg-[#083a7a]">

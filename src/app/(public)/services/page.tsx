@@ -2,14 +2,6 @@ import Link from "next/link";
 import { Pill, Btn, Card } from "@/components/ui";
 import { SERVICES } from "@/lib/constants";
 
-const accentColors: Record<string, string> = {
-  "01": "#0B4DA2",
-  "02": "#C8102E",
-  "03": "#D97706",
-  "04": "#16A34A",
-  "05": "#0891b2",
-};
-
 export default function ServicesPage() {
   return (
     <>
@@ -63,7 +55,7 @@ export default function ServicesPage() {
             ✔ Dedicated and personalized support &middot; ✔ Affordable pricing &middot; ✔ Highly skilled team
           </p>
           <div className="flex gap-3 justify-center flex-wrap">
-            <Link href="/portal"><Btn variant="primary" sz="lg" icon="🔐">Enter Client Portal</Btn></Link>
+            <Link href="/portal"><Btn as="span" variant="primary" sz="lg" icon="🔐">Enter Client Portal</Btn></Link>
             <Btn variant="outline" sz="lg">📞 (302) 322-5515</Btn>
           </div>
         </div>

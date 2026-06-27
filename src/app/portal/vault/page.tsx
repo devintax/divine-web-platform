@@ -34,6 +34,13 @@ export default function VaultPage() {
     return () => clearInterval(iv);
   }, []);
 
+  const categoryCounts = files.reduce((acc: Record<string, number>, file) => {
+    const category = (file.category || "general").toLowerCase();
+    acc[category] = (acc[category] || 0) + 1;
+    return acc;
+  }, {});
+  const categories = ["tax","formation","insurance","notary","bookkeeping","identity","general"].filter((category) => categoryCounts[category] > 0);
+  const visibleTabs = ["all", ...categories];
   const filtered = filter === "all" ? files : files.filter(f => (f.category || "general").toLowerCase() === filter);
   const isStaff = ["manager","accountant","specialist","broker","support","super_admin"].includes(role);
 
@@ -76,6 +83,22 @@ export default function VaultPage() {
     } catch (e: any) { toast.error(e.message); }
   }
 
+  async function toggleArchive(f: any) {
+    const archive = f.status !== "archived";
+    try {
+      const res = await fetch(`/api/vault/${f.id}/archive`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ archive }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok || !data.success) throw new Error(data.error || "Archive update failed");
+      toast.success(`${f.display_name || f.file_name} ${archive ? "archived" : "unarchived"}`);
+      loadAll();
+    } catch (e: any) { toast.error(e.message); }
+  }
+
   return (
     <div className="space-y-5 pb-20 md:pb-0">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
@@ -93,8 +116,10 @@ export default function VaultPage() {
       </Card>
 
       <div className="flex gap-1 bg-slate-100 p-1 rounded-xl overflow-x-auto">
-        {["all","tax","formation","insurance","notary","bookkeeping","identity"].map(c => (
-          <button key={c} onClick={() => setFilter(c)} className={`px-3 py-1.5 capitalize text-xs font-bold rounded-lg whitespace-nowrap ${filter === c ? "bg-white text-ink shadow-sm" : "text-muted"}`}>{c}</button>
+        {visibleTabs.map(c => (
+          <button key={c} onClick={() => setFilter(c)} className={`px-3 py-1.5 capitalize text-xs font-bold rounded-lg whitespace-nowrap ${filter === c ? "bg-white text-ink shadow-sm" : "text-muted"}`}>
+            {c} <span className="ml-1 opacity-70">{c === "all" ? files.length : categoryCounts[c]}</span>
+          </button>
         ))}
       </div>
 
@@ -131,6 +156,7 @@ export default function VaultPage() {
                         <td className="px-4 py-3 text-right">
                           <div className="flex gap-1 justify-end">
                             <button onClick={() => downloadFile(f)} className="px-2 py-1 text-xs font-bold text-[#0B4DA2] hover:bg-blue-50 rounded">⬇ Download</button>
+                            <button onClick={() => toggleArchive(f)} className="px-2 py-1 text-xs font-bold text-slate-700 hover:bg-slate-100 rounded">{f.status === "archived" ? "Unarchive" : "Archive"}</button>
                             <button onClick={() => setConfirmDelete(f)} className="px-2 py-1 text-xs font-bold text-red-600 hover:bg-red-50 rounded">🗑 Delete</button>
                           </div>
                         </td>
@@ -147,6 +173,7 @@ export default function VaultPage() {
                     <div className="text-[10px] text-muted">{new Date(f.created_at).toLocaleString()}</div>
                     <div className="flex gap-2">
                       <button onClick={() => downloadFile(f)} className="flex-1 px-2 py-1.5 text-xs font-bold text-[#0B4DA2] bg-blue-50 rounded">⬇ Download</button>
+                      <button onClick={() => toggleArchive(f)} className="flex-1 px-2 py-1.5 text-xs font-bold text-slate-700 bg-slate-100 rounded">{f.status === "archived" ? "Unarchive" : "Archive"}</button>
                       <button onClick={() => setConfirmDelete(f)} className="flex-1 px-2 py-1.5 text-xs font-bold text-red-600 bg-red-50 rounded">🗑 Delete</button>
                     </div>
                   </div>
@@ -254,11 +281,11 @@ function GenerateLinkModal({ onClose, targetUserId }: { onClose: () => void; tar
           <div className="space-y-3">
             <label className="block">
               <span className="text-xs font-bold uppercase text-muted">Recipient Email (optional)</span>
-              <input type="email" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)} className="w-full mt-1 border-[1.5px] border-border rounded-xl px-3 py-2 text-sm" />
+              <input type="email" value={recipientEmail} onChange={e => setRecipientEmail(e.target.value)} className="w-full mt-1 border-[1.5px] border-border rounded-xl px-3 py-2 text-base min-h-[44px]" />
             </label>
             <label className="block">
               <span className="text-xs font-bold uppercase text-muted">Purpose</span>
-              <input value={purpose} onChange={e => setPurpose(e.target.value)} className="w-full mt-1 border-[1.5px] border-border rounded-xl px-3 py-2 text-sm" />
+              <input value={purpose} onChange={e => setPurpose(e.target.value)} className="w-full mt-1 border-[1.5px] border-border rounded-xl px-3 py-2 text-base min-h-[44px]" />
             </label>
             <label className="block">
               <span className="text-xs font-bold uppercase text-muted">Expires In</span>

@@ -16,6 +16,7 @@ export function getSupabaseAdmin() {
   return {
     from: (table: string) => ({
       select: async (selector = "*") => {
+        void selector;
         const r = await api("GET", `/api/v1/entity/${table}`);
         if (r.error) return r;
         return { data: Array.isArray(r.data) ? r.data : [r.data], error: null };
@@ -33,8 +34,15 @@ export function getSupabaseAdmin() {
       delete: () => ({
         eq: async () => ({ data: {}, error: null }),
       }),
-      order: (_col: string, _opts?: { ascending?: boolean }) => getSupabaseAdmin().from(table),
-      limit: (_n: number) => getSupabaseAdmin().from(table),
+      order: (col: string, opts?: { ascending?: boolean }) => {
+        void col;
+        void opts;
+        return getSupabaseAdmin().from(table);
+      },
+      limit: (n: number) => {
+        void n;
+        return getSupabaseAdmin().from(table);
+      },
       eq: (column: string, value: unknown) => ({
         ...getSupabaseAdmin().from(table),
         single: async () => {
@@ -43,10 +51,11 @@ export function getSupabaseAdmin() {
           const match = rows.find((row: any) => row[column] === value || row[column] == value);
           return { data: match || null, error: null };
         },
-        order: async (_col: string, _opts?: any) => {
+        order: async (col: string, opts?: any) => {
+          void col;
+          void opts;
           const r = await api("GET", `/api/v1/entity/${table}`);
           const rows = (Array.isArray(r.data) ? r.data : [r.data]).filter((row: any) => row[column] === value || row[column] == value);
-          if (_opts?.ascending === false) rows.reverse();
           return { data: rows, error: null };
         },
       }),
@@ -58,15 +67,30 @@ export function getSupabaseAdmin() {
           return { data: match || null, error: null };
         },
       }),
-      lte: (_column: string, _value: unknown) => ({ ...getSupabaseAdmin().from(table) }),
-      gte: (_column: string, _value: unknown) => ({ ...getSupabaseAdmin().from(table) }),
+      lte: (column: string, value: unknown) => {
+        void column;
+        void value;
+        return { ...getSupabaseAdmin().from(table) };
+      },
+      gte: (column: string, value: unknown) => {
+        void column;
+        void value;
+        return { ...getSupabaseAdmin().from(table) };
+      },
     }),
     auth: { getUser: async () => ({ data: { user: null }, error: null }) },
     storage: {
       from: (_bucket: string) => ({
-        upload: async (_path: string, _file: any, _opts?: any) => ({ data: { path: _path, url: `${BASE}/storage/${_bucket}/${_path}` }, error: null }),
-        download: async (_path: string) => ({ data: new Blob(), error: null }),
-        remove: async (_paths: any) => ({ data: { message: "Deleted" }, error: null }),
+          upload: async (_path: string, _file: any, _opts?: any) => {
+            void _file;
+            void _opts;
+            return { data: { path: _path, url: `${BASE}/storage/${_bucket}/${_path}` }, error: null };
+          },
+          download: async (_path: string) => {
+            void _path;
+            return { data: new Blob([]), error: null };
+          },
+          remove: async (_paths: any) => { void _paths; return { data: { message: "Deleted" }, error: null }; },
         createSignedUrl: async () => ({ data: { signedUrl: "" }, error: null }),
       }),
     },

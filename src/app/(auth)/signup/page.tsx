@@ -44,7 +44,7 @@ export default function SignupPage() {
               <div className="text-5xl mb-4">&#9993;</div>
               <h2 className="text-xl font-black mb-2">Check Your Email</h2>
               <p className="text-sm text-muted leading-relaxed mb-6">We&apos;ve sent a confirmation link to <strong className="text-ink">{email}</strong>.</p>
-              <Link href="/login"><Btn variant="primary">Go to Login</Btn></Link>
+              <Link href="/login"><Btn as="span" variant="primary">Go to Login</Btn></Link>
             </div>
           ) : (
             <>

@@ -17,9 +17,8 @@ export async function annualReportComplianceWorkflow(): Promise<void> {
   const formations = await db.getFormationsDueForCompliance();
   if (formations?.length) {
     for (const f of formations) {
-      const daysOut = Math.max(0, Math.floor((new Date(f.annual_report_due).getTime() - Date.now()) / 86400000));
       if (f.user_profiles?.email) {
-        await db.writeAuditLog({ action: 'compliance_alert_sent', resourceType: 'formation', resourceId: f.id, metadata: { alertType: 'annual_report', daysOut } });
+        await db.writeAuditLog({ action: 'compliance_alert_sent', resourceType: 'formation', resourceId: f.id, metadata: { alertType: 'annual_report', daysOut: f.days_out } });
       }
     }
   }
