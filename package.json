@@ -17,7 +17,8 @@
     "auto:commit": "node scripts/auto-commit.js",
     "setup:super-admin": "ts-node --project tsconfig.json scripts/create-super-admin.ts",
     "schedules:register": "ts-node -P temporal/tsconfig.json temporal/src/schedules.ts",
-    "e2e:lifecycle": "tsx scripts/e2e-lifecycle.ts"
+    "e2e:lifecycle": "tsx scripts/e2e-lifecycle.ts",
+    "backfill:post-audit-gaps": "tsx scripts/backfill-post-audit-gaps.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { verifyStaff } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { canAccessServiceDesk, isServiceType } from "@/lib/service-workflow";
+import { DFGEmail } from "@/lib/email/dfg-email";
 import { signalWorkflow } from "@/lib/temporal";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -46,6 +47,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     read_by_staff: true,
   });
   await safeSignal(`${enrollment.service_type}-${id}`, "staffCompletedSignal", update);
+  const { data: client } = await admin.from("user_profiles").select("legal_name,email").eq("id", enrollment.user_id).single();
+  await DFGEmail.caseCompleted((client as any)?.email, (client as any)?.legal_name, enrollment.service_type);
   return NextResponse.json({ success: true });
 }
 

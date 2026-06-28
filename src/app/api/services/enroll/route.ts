@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { isServiceType, priorityForService, SERVICE_WORKFLOW } from "@/lib/service-workflow";
+import { startEnrollmentWorkflow } from "@/lib/enrollment-workflow";
+import { DFGEmail } from "@/lib/email/dfg-email";
+import { calculateSlaDeadline, isServiceType, priorityForService, SERVICE_WORKFLOW } from "@/lib/service-workflow";
 
 const VALID = ["tax","bookkeeping","formation","insurance","notary"];
 
@@ -68,21 +70,30 @@ export async function POST(req: NextRequest) {
   const admin = getSupabaseAdmin();
   const progress = totalSteps > 0 ? Math.round((step / totalSteps) * 100) : 0;
 
-  const { data: existing } = await admin.from("service_enrollments").select("id").eq("user_id", session.profileId).eq("service_type", serviceType)
+  const { data: existing } = await admin.from("service_enrollments").select("id,workflow_id").eq("user_id", session.profileId).eq("service_type", serviceType)
     .in("status", ["draft","pending"]).order("created_at", { ascending: false }).limit(1).single();
 
   if (action === "submit") {
     let enrollmentId: string | undefined;
+    let workflowId = existing?.workflow_id || null;
+    let workflowStarted = false;
+    const { count: priorCount } = await admin
+      .from("service_enrollments")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", session.profileId)
+      .eq("service_type", serviceType)
+      .eq("status", "completed");
     const workflow = SERVICE_WORKFLOW[serviceType];
+    const priority = priorityForService(serviceType, intakeData, (priorCount || 0) > 0);
     const submitted = {
       status: "pending",
       progress: 10,
       current_step: 1,
       intake_data: intakeData,
       pod: workflow.pod,
-      priority: priorityForService(serviceType, intakeData),
+      priority,
       client_message: "Your request is under review. A specialist will update this case shortly.",
-      sla_deadline: new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString(),
+      sla_deadline: calculateSlaDeadline(priority),
       updated_at: new Date().toISOString(),
     };
     if (existing) {
@@ -92,8 +103,25 @@ export async function POST(req: NextRequest) {
       const { data: newEnr } = await admin.from("service_enrollments").insert({ user_id: session.profileId, service_type: serviceType, ...submitted }).select("id").single();
       enrollmentId = newEnr?.id;
     }
-    if (enrollmentId) await ensureCaseLifecycle(enrollmentId, serviceType, session.profileId);
-    return NextResponse.json({ success: true, status: "submitted", enrollmentId, enrollment: { id: enrollmentId } });
+    if (enrollmentId) {
+      await ensureCaseLifecycle(enrollmentId, serviceType, session.profileId);
+      if (!workflowId) {
+        try {
+          workflowId = await startEnrollmentWorkflow({
+            enrollmentId,
+            userId: session.profileId,
+            serviceType,
+            payload: { clientEmail: session.email, clientName: session.legalName, intakeData },
+          });
+          workflowStarted = true;
+          await admin.from("service_enrollments").update({ workflow_id: workflowId }).eq("id", enrollmentId);
+        } catch (error) {
+          console.warn("[services/enroll] workflow start failed; case remains queued", error);
+        }
+      }
+      await DFGEmail.intakeConfirmation(session.email, session.legalName, workflow.label, enrollmentId);
+    }
+    return NextResponse.json({ success: true, status: "submitted", enrollmentId, workflowId, workflowStarted, enrollment: { id: enrollmentId } });
   }
 
   if (existing) await admin.from("service_enrollments").update({ progress, intake_data: intakeData, updated_at: new Date().toISOString() }).eq("id", existing.id);

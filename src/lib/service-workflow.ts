@@ -104,8 +104,28 @@ export function canAccessServiceDesk(role: string, service: ServiceType) {
   return SERVICE_WORKFLOW[service].allowedRoles.includes(role);
 }
 
-export function priorityForService(service: ServiceType, intakeData: any): "low" | "normal" | "high" | "urgent" {
-  if (service === "tax" && (intakeData?.incomeSources?.length || 0) > 3) return "high";
-  if (service === "notary" && intakeData?.sessionType === "ron") return "high";
+export type CasePriority = "urgent" | "high" | "normal";
+
+export function priorityForService(service: ServiceType, intakeData: any, isReturning = false): CasePriority {
+  if (intakeData?.isExpedited || intakeData?.expedited || intakeData?.priority === "urgent") return "urgent";
+  if (service === "tax" && isReturning && isTaxPeakSeason()) return "urgent";
+  if (service === "tax" && ((intakeData?.incomeSources?.length || 0) > 3 || (intakeData?.incomeTypes?.length || 0) > 3)) return "high";
+  if (service === "notary" && (intakeData?.sessionType === "ron" || intakeData?.session_type === "ron")) return "high";
+  if (isReturning) return "high";
   return "normal";
+}
+
+export function slaHoursForPriority(priority: CasePriority) {
+  if (priority === "urgent") return 4;
+  if (priority === "high") return 24;
+  return 48;
+}
+
+export function calculateSlaDeadline(priority: CasePriority, from = new Date()) {
+  return new Date(from.getTime() + slaHoursForPriority(priority) * 60 * 60 * 1000).toISOString();
+}
+
+function isTaxPeakSeason() {
+  const month = new Date().getMonth() + 1;
+  return month >= 2 && month <= 4;
 }

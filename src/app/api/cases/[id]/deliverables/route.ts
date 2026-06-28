@@ -3,7 +3,9 @@ import { getAuthSession } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { can } from "@/lib/rbac/can";
 import { loadCaseBundle } from "@/lib/case-records";
+import { DFGEmail } from "@/lib/email/dfg-email";
 import { isServiceType } from "@/lib/service-workflow";
+import { SERVICE_WORKFLOW } from "@/lib/service-workflow";
 import { signalWorkflow } from "@/lib/temporal";
 import { defaultDeliverableType, uploadToClientVault } from "@/lib/client-vault";
 
@@ -13,7 +15,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   const { id } = await params;
   const bundle = await loadCaseBundle(id);
-  if (!bundle || !isServiceType(bundle.enrollment.service_type)) return NextResponse.json({ error: "Case not found" }, { status: 404 });
+  const serviceType = bundle?.enrollment.service_type;
+  if (!bundle || !isServiceType(serviceType)) return NextResponse.json({ error: "Case not found" }, { status: 404 });
 
   const form = await req.formData();
   const file = form.get("file") as File | null;
@@ -29,7 +32,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const vaultResult = await uploadToClientVault({
       userId: bundle.enrollment.user_id,
       enrollmentId: id,
-      serviceType: bundle.enrollment.service_type,
+      serviceType,
       file,
       pod: bundle.enrollment.pod,
     });
@@ -67,6 +70,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     read_by_staff: true,
   });
 
-  try { await signalWorkflow(`${bundle.enrollment.service_type}-${id}`, "deliverableReadySignal", { deliverableId: deliverable.id, requiresApproval }); } catch {}
+  try { await signalWorkflow(`${serviceType}-${id}`, "deliverableReadySignal", { deliverableId: deliverable.id, requiresApproval }); } catch {}
+  if (requiresApproval) {
+    await DFGEmail.readyForReview(
+      bundle.client?.email,
+      bundle.client?.legal_name,
+      SERVICE_WORKFLOW[serviceType].label,
+      title,
+    );
+  } else {
+    await DFGEmail.caseCompleted(bundle.client?.email, bundle.client?.legal_name, SERVICE_WORKFLOW[serviceType].label);
+  }
   return NextResponse.json({ success: true, deliverable });
 }

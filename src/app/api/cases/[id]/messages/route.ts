@@ -2,7 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { loadCaseBundle, canReadCase } from "@/lib/case-records";
+import { DFGEmail } from "@/lib/email/dfg-email";
 import { sendSms } from "@/lib/sms";
+import { SERVICE_WORKFLOW, isServiceType } from "@/lib/service-workflow";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAuthSession();
@@ -51,6 +53,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
         { relatedResourceType: "case_message", relatedResourceId: id, sentBy: session.profileId },
       );
     }
+  }
+  if (senderType === "staff" && !isInternal) {
+    const serviceType = bundle.enrollment.service_type;
+    const serviceLabel = isServiceType(serviceType)
+      ? SERVICE_WORKFLOW[serviceType].label
+      : "service";
+    await DFGEmail.newMessage(bundle.client?.email, bundle.client?.legal_name, serviceLabel);
   }
 
   return NextResponse.json({ success: true, message: data });

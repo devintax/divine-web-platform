@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getAuthSession } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { loadCaseBundle, canReadCase } from "@/lib/case-records";
+import { DFGEmail } from "@/lib/email/dfg-email";
 import { signalWorkflow } from "@/lib/temporal";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -42,5 +43,8 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
 
   try { await signalWorkflow(`${bundle.enrollment.service_type}-${id}`, "clientApprovedSignal", { deliverableId }); } catch {}
+  if (bundle.assignedStaff?.email) {
+    await DFGEmail.newMessage(bundle.assignedStaff.email, bundle.assignedStaff.legal_name, bundle.enrollment.service_type);
+  }
   return NextResponse.json({ success: true });
 }

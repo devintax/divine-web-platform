@@ -1,4 +1,5 @@
 import { randomUUID } from "crypto";
+import { DFGEmail } from "@/lib/email/dfg-email";
 import { sendSms } from "@/lib/sms";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -79,14 +80,15 @@ export async function requestMissingDocument(input: {
 
   const { data: client } = await admin
     .from("user_profiles")
-    .select("full_name,phone")
+    .select("legal_name,email,phone")
     .eq("id", input.clientUserId)
     .single();
   const uploadUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/upload/${link.token}`;
+  await DFGEmail.documentRequested((client as any)?.email || input.recipientEmail, (client as any)?.legal_name, input.documentName, uploadUrl, link.expires_at);
   if ((client as any)?.phone) {
     const sms = await sendSms(
       (client as any).phone,
-      `Hi ${(client as any).full_name || "there"}! Divine Financial Group needs ${input.documentName}. Upload securely: ${uploadUrl}. Link expires in 48 hours.`,
+      `Hi ${(client as any).legal_name || "there"}! Divine Financial Group needs ${input.documentName}. Upload securely: ${uploadUrl}. Link expires in 48 hours.`,
       { relatedResourceType: "upload_link", relatedResourceId: link.id, sentBy: input.requestedBy },
     );
     if (sms.success) await admin.from("upload_links").update({ sms_sent_at: new Date().toISOString() }).eq("id", link.id);
