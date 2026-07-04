@@ -68,6 +68,13 @@ export async function PATCH(req: NextRequest) {
 
   if (profileUpdates.address !== undefined) profileUpdates.address_line1 = profileUpdates.address;
   if (profileUpdates.zip !== undefined) profileUpdates.zip_code = profileUpdates.zip;
+  if (profileUpdates.state !== undefined) {
+    const normalizedState = normalizeState(profileUpdates.state);
+    if (!normalizedState) {
+      return NextResponse.json({ error: "Use a valid 2-letter state code." }, { status: 400 });
+    }
+    profileUpdates.state = normalizedState;
+  }
 
   const admin = getSupabaseAdmin();
   if (Object.keys(profileUpdates).length > 1) {
@@ -111,4 +118,66 @@ function defaultSettings() {
     timezone: "America/New_York",
     two_factor_enabled: false,
   };
+}
+
+const STATE_CODES: Record<string, string> = {
+  alabama: "AL",
+  alaska: "AK",
+  arizona: "AZ",
+  arkansas: "AR",
+  california: "CA",
+  colorado: "CO",
+  connecticut: "CT",
+  delaware: "DE",
+  florida: "FL",
+  georgia: "GA",
+  hawaii: "HI",
+  idaho: "ID",
+  illinois: "IL",
+  indiana: "IN",
+  iowa: "IA",
+  kansas: "KS",
+  kentucky: "KY",
+  louisiana: "LA",
+  maine: "ME",
+  maryland: "MD",
+  massachusetts: "MA",
+  michigan: "MI",
+  minnesota: "MN",
+  mississippi: "MS",
+  missouri: "MO",
+  montana: "MT",
+  nebraska: "NE",
+  nevada: "NV",
+  "new hampshire": "NH",
+  "new jersey": "NJ",
+  "new mexico": "NM",
+  "new york": "NY",
+  "north carolina": "NC",
+  "north dakota": "ND",
+  ohio: "OH",
+  oklahoma: "OK",
+  oregon: "OR",
+  pennsylvania: "PA",
+  "rhode island": "RI",
+  "south carolina": "SC",
+  "south dakota": "SD",
+  tennessee: "TN",
+  texas: "TX",
+  utah: "UT",
+  vermont: "VT",
+  virginia: "VA",
+  washington: "WA",
+  "west virginia": "WV",
+  wisconsin: "WI",
+  wyoming: "WY",
+  "district of columbia": "DC",
+};
+
+function normalizeState(value: unknown) {
+  if (typeof value !== "string") return null;
+  const trimmed = value.trim();
+  if (!trimmed) return "";
+  if (/^[a-z]{2}$/i.test(trimmed)) return trimmed.toUpperCase();
+  return STATE_CODES[trimmed.toLowerCase()] || null;
 }
