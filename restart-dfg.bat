@@ -31,45 +31,20 @@ if errorlevel 1 (
 )
 echo   OK Docker is running.
 
-REM --- 3. Start InsForge containers ----------------------------
-echo [3/6] Ensuring InsForge backend is up using stable production compose...
-pushd "%ROOT%..\insforge-backend" >nul 2>&1
-if errorlevel 1 (
-    echo   ERROR: ..\insforge-backend not found. Cannot start InsForge.
-    pause
-    exit /b 1
-)
-
-docker compose -f docker-compose.prod.yml up -d --no-build
-if errorlevel 1 (
-    echo   Production image missing or stale. Building InsForge image...
-    docker compose -f docker-compose.prod.yml up -d --build
-    if errorlevel 1 (
-        popd
-        echo   ERROR: InsForge production compose failed.
-        pause
-        exit /b 1
-    )
-)
-
-docker update --restart unless-stopped insforge-backend-postgres-1 insforge-backend-postgrest-1 insforge-backend-deno-1 insforge-backend-insforge-1 >nul 2>&1
-popd
-
-REM Verify InsForge health
-echo   Waiting for InsForge API at http://127.0.0.1:7130/api/health...
+REM --- 3. Verify remote InsForge -------------------------------
+echo [3/6] Checking LAN-hosted InsForge at https://insforge.dfgworld.net/api/health...
 set /a insforge_tries=0
 :wait_insforge
 timeout /t 2 /nobreak >nul
-curl -s -o nul http://127.0.0.1:7130/api/health
+curl -s -o nul https://insforge.dfgworld.net/api/health
 if not errorlevel 1 goto insforge_ready
 set /a insforge_tries+=1
 if %insforge_tries% LSS 30 goto wait_insforge
-echo   ERROR: InsForge API did not become healthy in 60s.
-docker logs --tail 40 insforge-backend-insforge-1
+echo   ERROR: Remote InsForge API did not become healthy in 60s.
 pause
 exit /b 1
 :insforge_ready
-curl -s -o nul -w "   InsForge health check: %%{http_code}\n" http://127.0.0.1:7130/api/health
+curl -s -o nul -w "   InsForge health check: %%{http_code}\n" https://insforge.dfgworld.net/api/health
 
 REM --- 4. Verify Temporal is running ---------------------------
 echo [4/6] Checking Temporal server (localhost:7233)...
@@ -95,7 +70,7 @@ echo   Next.js is ready at http://localhost:3000
 
 REM --- 6. Launch Temporal worker in a new window ---------------
 echo [6/6] Starting Temporal worker and ngrok tunnel...
-start "DFG Temporal Worker" cmd /k "cd /d %ROOT% && set TEMPORAL_ADDRESS=localhost:7233 && set TEMPORAL_NAMESPACE=default && set NEXT_PUBLIC_INSFORGE_URL=http://127.0.0.1:7130 && npx tsx --tsconfig temporal/tsconfig.json temporal/src/worker.ts"
+start "DFG Temporal Worker" cmd /k "cd /d %ROOT% && set TEMPORAL_ADDRESS=localhost:7233 && set TEMPORAL_NAMESPACE=default && npx tsx --tsconfig temporal/tsconfig.json temporal/src/worker.ts"
 
 REM Launch ngrok tunnel in a new window
 start "DFG ngrok" cmd /k "ngrok http 3000 --hostname=gusty-sip-cradling.ngrok-free.dev"
@@ -107,7 +82,7 @@ echo ============================================
 echo.
 echo   Local:    http://localhost:3000
 echo   Public:   https://gusty-sip-cradling.ngrok-free.dev
-echo   InsForge: http://127.0.0.1:7130
+echo   InsForge: https://insforge.dfgworld.net
 echo   Temporal: http://127.0.0.1:8080
 echo.
 echo   Each service runs in its own window. Close them to stop.

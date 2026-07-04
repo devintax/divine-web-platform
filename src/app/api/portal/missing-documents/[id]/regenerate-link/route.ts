@@ -88,7 +88,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     const sms = await sendSms(
       session.phone,
       `Divine Financial Group refreshed your secure upload link for ${missingDoc.document_name}: ${uploadUrl}. Link expires in 48 hours.`,
-      { relatedResourceType: "upload_link", relatedResourceId: newLink.id },
+      { relatedResourceType: "upload_link", relatedResourceId: newLink.id, preference: "sms_on_update", preferenceUserId: session.profileId },
     );
     if (sms.success) await admin.from("upload_links").update({ sms_sent_at: new Date().toISOString() }).eq("id", newLink.id);
   }

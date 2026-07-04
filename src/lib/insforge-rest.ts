@@ -1,7 +1,7 @@
 // Direct REST client for InsForge API routes that don't have SDK wrappers
 // This handles auth and generic CRUD that the SDK exposes
 
-const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || "http://127.0.0.1:7130";
+const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
 const KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || "";
 
 export async function insforgeFetch(

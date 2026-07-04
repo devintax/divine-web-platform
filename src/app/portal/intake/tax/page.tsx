@@ -27,13 +27,11 @@ export default function TaxWizard() {
 
   async function submit() {
     setSubmitting(true);
-    const uid = document.cookie.match(/d_user_id=([^;]+)/)?.[1];
-    if (!uid) { setSubmitting(false); return; }
     try {
       const res = await fetch("/api/services/enroll", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ serviceType: "tax", intakeData: data, action: "submit" }) });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
-      await fetch("/api/workflows/tax", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enrollmentId: json.enrollmentId || json.id, userId: uid, clientEmail: "client@example.com", clientName: "Client", filingStatus: data.filingStatus, incomeSources: data.incomeSources || [], deductions: data.deductions || [] }) });
+      await fetch("/api/workflows/tax", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ enrollmentId: json.enrollmentId || json.id, filingStatus: data.filingStatus, incomeSources: data.incomeSources || [], deductions: data.deductions || [] }) });
       localStorage.removeItem("dfg-intake-tax-progress");
       setDone(true);
     } catch (e: any) { alert(e.message); }

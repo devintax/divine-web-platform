@@ -119,7 +119,7 @@ export async function POST(req: NextRequest) {
           console.warn("[services/enroll] workflow start failed; case remains queued", error);
         }
       }
-      await DFGEmail.intakeConfirmation(session.email, session.legalName, workflow.label, enrollmentId);
+      await DFGEmail.intakeConfirmation(session.email, session.legalName, workflow.label, enrollmentId, session.profileId);
     }
     return NextResponse.json({ success: true, status: "submitted", enrollmentId, workflowId, workflowStarted, enrollment: { id: enrollmentId } });
   }

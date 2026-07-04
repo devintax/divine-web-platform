@@ -1,32 +1,10 @@
 import { randomUUID } from "crypto";
-import { execFileSync } from "child_process";
+import { existsSync, readFileSync } from "fs";
 
+loadEnvLocal();
 const BASE = process.env.NEXT_PUBLIC_APP_URL || "http://127.0.0.1:3000";
-const POSTGRES_CONTAINER = process.env.INSFORGE_POSTGRES_CONTAINER || "insforge-backend-postgres-1";
 const SERVICES = ["tax", "formation", "insurance", "notary", "bookkeeping"] as const;
 type ServiceType = typeof SERVICES[number];
-
-function sql(value: string) {
-  return `'${value.replace(/'/g, "''")}'`;
-}
-
-function pgJson<T>(query: string): T {
-  const output = execFileSync("docker", [
-    "exec",
-    POSTGRES_CONTAINER,
-    "psql",
-    "-U",
-    "postgres",
-    "-d",
-    "insforge",
-    "-t",
-    "-A",
-    "-c",
-    query,
-  ], { encoding: "utf8" }).trim();
-  if (!output) throw new Error("Postgres query returned no data");
-  return JSON.parse(output) as T;
-}
 
 function pdfBlob(label: string) {
   const body = `%PDF-1.4
@@ -51,24 +29,70 @@ trailer
   return new Blob([body], { type: "application/pdf" });
 }
 
-async function ensureProfile(role: string, email: string, legalName: string) {
-  const authUserId = `e2e-${role}-${randomUUID()}`;
-  return pgJson<{ id: string; auth_user_id: string; email: string; role: string }>(`
-    WITH inserted AS (
-      INSERT INTO user_profiles (auth_user_id, email, legal_name, role, is_active)
-      VALUES (${sql(authUserId)}, ${sql(email)}, ${sql(legalName)}, ${sql(role)}, true)
-      RETURNING id, auth_user_id, email, role
-    )
-    SELECT row_to_json(inserted) FROM inserted;
-  `);
+async function createTestUser(role: string, email: string, legalName: string) {
+  const password = `E2E-${randomUUID()}-Secure!`;
+  const signup = await fetch(`${BASE}/api/auth/signup`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password, name: legalName }),
+  });
+  const signupBody = await readJson(signup);
+  if (!signup.ok) throw new Error(`Signup failed for ${email}: ${signup.status} ${JSON.stringify(signupBody)}`);
+
+  const promoted = await promoteTestUser(signupBody.userId, role);
+
+  const cookie = await loginTestUser(email, password);
+  return { ...promoted.profile, cookie };
 }
 
-async function request(path: string, authUserId: string, init: RequestInit = {}) {
+async function promoteTestUser(authUserId: string, role: string) {
+  const token = process.env.E2E_TEST_TOKEN || process.env.SESSION_SECRET || process.env.INSFORGE_SERVICE_KEY || "";
+  const res = await fetch(`${BASE}/api/test/e2e-user`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-e2e-token": token },
+    body: JSON.stringify({ authUserId, role }),
+  });
+  const body = await readJson(res);
+  if (!res.ok) throw new Error(`E2E profile promotion failed: ${res.status} ${JSON.stringify(body)}`);
+  return body;
+}
+
+function loadEnvLocal() {
+  if (!existsSync(".env.local")) return;
+  for (const line of readFileSync(".env.local", "utf8").split(/\r?\n/)) {
+    const trimmed = line.trim();
+    if (!trimmed || trimmed.startsWith("#")) continue;
+    const equals = trimmed.indexOf("=");
+    if (equals < 1) continue;
+    const key = trimmed.slice(0, equals).trim();
+    if (process.env[key]) continue;
+    let value = trimmed.slice(equals + 1).trim();
+    if ((value.startsWith('"') && value.endsWith('"')) || (value.startsWith("'") && value.endsWith("'"))) {
+      value = value.slice(1, -1);
+    }
+    process.env[key] = value;
+  }
+}
+
+async function loginTestUser(email: string, password: string) {
+  const res = await fetch(`${BASE}/api/auth/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+  const body = await readJson(res);
+  if (!res.ok) throw new Error(`Login failed for ${email}: ${res.status} ${JSON.stringify(body)}`);
+  const cookie = extractCookie(res);
+  if (!cookie) throw new Error(`Login did not return a session cookie for ${email}`);
+  return cookie;
+}
+
+async function request(path: string, cookie: string, init: RequestInit = {}) {
   const url = `${BASE}${path}`;
   const res = await fetch(url, {
     ...init,
     headers: {
-      Cookie: `d_user_id=${authUserId}`,
+      Cookie: cookie,
       ...(init.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...(init.headers || {}),
     },
@@ -79,10 +103,25 @@ async function request(path: string, authUserId: string, init: RequestInit = {})
   return data;
 }
 
+async function readJson(res: Response) {
+  const text = await res.text();
+  try {
+    return text ? JSON.parse(text) : {};
+  } catch {
+    return { raw: text };
+  }
+}
+
+function extractCookie(res: Response) {
+  const getSetCookie = (res.headers as any).getSetCookie?.() as string[] | undefined;
+  const cookieHeader = getSetCookie?.[0] || res.headers.get("set-cookie") || "";
+  return cookieHeader.split(";")[0];
+}
+
 async function main() {
   const stamp = Date.now();
-  const client = await ensureProfile("client", `e2e-client-${stamp}@dfgbusiness.test`, "E2E Client");
-  const staff = await ensureProfile("super_admin", `e2e-staff-${stamp}@dfgbusiness.test`, "E2E Staff");
+  const client = await createTestUser("client", `e2e-client-${stamp}@dfgbusiness.test`, "E2E Client");
+  const staff = await createTestUser("super_admin", `e2e-staff-${stamp}@dfgbusiness.test`, "E2E Staff");
 
   const results = [];
   for (const serviceType of SERVICES) {
@@ -99,10 +138,10 @@ async function main() {
 
 async function runServiceLifecycle(
   serviceType: ServiceType,
-  client: { id: string; auth_user_id: string; email: string },
-  staff: { id: string; auth_user_id: string; email: string },
+  client: { id: string; auth_user_id: string; email: string; cookie: string },
+  staff: { id: string; auth_user_id: string; email: string; cookie: string },
 ) {
-  const intake = await request("/api/services/enroll", client.auth_user_id, {
+  const intake = await request("/api/services/enroll", client.cookie, {
     method: "POST",
     body: JSON.stringify({
       serviceType,
@@ -114,7 +153,7 @@ async function runServiceLifecycle(
   if (!enrollmentId) throw new Error(`${serviceType} enrollment was not created`);
 
   if (!intake.workflowId) {
-    await request(`/api/workflows/${serviceType}`, client.auth_user_id, {
+    await request(`/api/workflows/${serviceType}`, client.cookie, {
       method: "POST",
       body: JSON.stringify({ enrollmentId, clientEmail: client.email, clientName: "E2E Client", userId: client.id }),
     }).catch((error) => {
@@ -122,10 +161,10 @@ async function runServiceLifecycle(
     });
   }
 
-  const cases = await request(`/api/admin/cases?service=${serviceType}`, staff.auth_user_id);
+  const cases = await request(`/api/admin/cases?service=${serviceType}`, staff.cookie);
   if (!cases.cases?.some((c: any) => c.id === enrollmentId)) throw new Error(`Submitted ${serviceType} case did not appear in staff queue`);
 
-  const missing = await request(`/api/cases/${enrollmentId}/missing-docs`, staff.auth_user_id, {
+  const missing = await request(`/api/cases/${enrollmentId}/missing-docs`, staff.cookie, {
     method: "POST",
     body: JSON.stringify({ documentName: `${serviceLabel(serviceType)} verification document`, instructions: "Upload the latest document for E2E verification." }),
   });
@@ -135,13 +174,13 @@ async function runServiceLifecycle(
 
   const docForm = new FormData();
   docForm.append("files", pdfBlob(`E2E ${serviceType} source document`), `${serviceType}-source-e2e.pdf`);
-  await request(`/api/vault/public-upload?token=${token}`, client.auth_user_id, { method: "POST", body: docForm });
+  await request(`/api/vault/public-upload?token=${token}`, client.cookie, { method: "POST", body: docForm });
 
-  await request(`/api/cases/${enrollmentId}/messages`, staff.auth_user_id, {
+  await request(`/api/cases/${enrollmentId}/messages`, staff.cookie, {
     method: "POST",
     body: JSON.stringify({ message: `Your ${serviceLabel(serviceType)} documents are received. We are preparing your case.` }),
   });
-  await request(`/api/cases/${enrollmentId}/messages`, client.auth_user_id, {
+  await request(`/api/cases/${enrollmentId}/messages`, client.cookie, {
     method: "POST",
     body: JSON.stringify({ message: "Thank you. Please proceed." }),
   });
@@ -151,15 +190,15 @@ async function runServiceLifecycle(
   deliverableForm.append("description", "Automated deliverable for lifecycle verification.");
   deliverableForm.append("requiresApproval", "true");
   deliverableForm.append("file", pdfBlob(`E2E ${serviceType} deliverable`), `${serviceType}-deliverable-e2e.pdf`);
-  const delivered = await request(`/api/cases/${enrollmentId}/deliverables`, staff.auth_user_id, { method: "POST", body: deliverableForm });
+  const delivered = await request(`/api/cases/${enrollmentId}/deliverables`, staff.cookie, { method: "POST", body: deliverableForm });
 
-  await request(`/api/cases/${enrollmentId}/approve`, client.auth_user_id, {
+  await request(`/api/cases/${enrollmentId}/approve`, client.cookie, {
     method: "POST",
     body: JSON.stringify({ deliverableId: delivered.deliverable.id }),
   });
-  await request(`/api/cases/${enrollmentId}/complete`, staff.auth_user_id, { method: "POST" });
+  await request(`/api/cases/${enrollmentId}/complete`, staff.cookie, { method: "POST" });
 
-  const finalCase = await request(`/api/cases/${enrollmentId}`, client.auth_user_id);
+  const finalCase = await request(`/api/cases/${enrollmentId}`, client.cookie);
   const enrollment = finalCase.case?.enrollment;
   if (enrollment?.status !== "completed" || enrollment?.progress !== 100) {
     throw new Error(`${serviceType} case did not complete correctly`);

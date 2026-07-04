@@ -1,7 +1,7 @@
 $ErrorActionPreference = 'Stop'
 
 $projectRoot = "C:\Users\vgbewonyo\Documents\DevOps\dfg-web-platform"
-$insforgeBackend = Split-Path $projectRoot | Join-Path -ChildPath "insforge-backend"
+$insforgeUrl = "https://insforge.dfgworld.net"
 $temporalNamespace = "default"
 $ngrokPort = 3000
 
@@ -20,32 +20,19 @@ try {
     exit 1
 }
 
-# --- 2. InsForge Backend ---
-Write-Host "[2/6] Starting InsForge Backend (stable production compose)..." -ForegroundColor Cyan
-Set-Location $insforgeBackend
-docker compose -f docker-compose.prod.yml up -d --no-build
-if ($LASTEXITCODE -ne 0) {
-    Write-Host "Production image missing or stale. Building InsForge image..." -ForegroundColor Yellow
-    docker compose -f docker-compose.prod.yml up -d --build
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "ERROR: InsForge production compose failed." -ForegroundColor Red
-        exit 1
-    }
-}
-docker update --restart unless-stopped insforge-backend-postgres-1 insforge-backend-postgrest-1 insforge-backend-deno-1 insforge-backend-insforge-1 | Out-Null
-
+# --- 2. Remote InsForge ---
+Write-Host "[2/6] Checking LAN-hosted InsForge..." -ForegroundColor Cyan
 $insforgeHealth = $null
 $retries = 0
 while (-not $insforgeHealth -and $retries -lt 30) {
     Start-Sleep -Seconds 2
-    try { $insforgeHealth = Invoke-WebRequest -Uri "http://127.0.0.1:7130/api/health" -TimeoutSec 2 } catch {}
+    try { $insforgeHealth = Invoke-WebRequest -Uri "$insforgeUrl/api/health" -TimeoutSec 5 } catch {}
     $retries++
 }
 if ($insforgeHealth -and $insforgeHealth.StatusCode -eq 200) {
-    Write-Host "InsForge is healthy at http://127.0.0.1:7130/api/health" -ForegroundColor Green
+    Write-Host "InsForge is healthy at $insforgeUrl/api/health" -ForegroundColor Green
 } else {
-    Write-Host "ERROR: InsForge health check failed. Recent app logs:" -ForegroundColor Red
-    docker logs --tail 40 insforge-backend-insforge-1
+    Write-Host "ERROR: Remote InsForge health check failed at $insforgeUrl/api/health." -ForegroundColor Red
     exit 1
 }
 
@@ -66,7 +53,7 @@ Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host '[NEXT
 
 # --- 5. Temporal Worker ---
 Write-Host "[5/6] Starting Temporal Worker..." -ForegroundColor Cyan
-Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host '[TEMPORAL WORKER] Starting...' -ForegroundColor Green; cd `"$projectRoot`"; `$env:TEMPORAL_ADDRESS='localhost:7233'; `$env:TEMPORAL_NAMESPACE='$temporalNamespace'; `$env:NEXT_PUBLIC_INSFORGE_URL='http://127.0.0.1:7131'; `$env:NEXT_PUBLIC_INSFORGE_ANON_KEY='eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3OC0xMjM0LTU2NzgtOTBhYi1jZGVmMTIzNDU2NzgiLCJlbWFpbCI6ImFub25AaW5zZm9yZ2UuY29tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Nzk0NTI4OTd9.1APQ_fu2JpHCMZqcjzDVfjC2MjLSy4Q91waDBjq8V5I'; npx tsx --tsconfig temporal/tsconfig.json temporal/src/worker.ts" -WindowStyle Normal
+Start-Process powershell -ArgumentList "-NoExit", "-Command", "Write-Host '[TEMPORAL WORKER] Starting...' -ForegroundColor Green; cd `"$projectRoot`"; `$env:TEMPORAL_ADDRESS='localhost:7233'; `$env:TEMPORAL_NAMESPACE='$temporalNamespace'; npx tsx --tsconfig temporal/tsconfig.json temporal/src/worker.ts" -WindowStyle Normal
 
 # --- 6. ngrok ---
 Write-Host "[6/6] Starting ngrok tunnel..." -ForegroundColor Cyan
@@ -89,8 +76,7 @@ Write-Host "====================================" -ForegroundColor DarkBlue
 Write-Host ""
 Write-Host "  Frontend:     http://localhost:$ngrokPort" -ForegroundColor Blue
 if ($publicUrl) { Write-Host "  Public URL:   $publicUrl" -ForegroundColor Magenta }
-Write-Host "  InsForge UI:  http://127.0.0.1:7131" -ForegroundColor Blue
-Write-Host "  InsForge API: http://127.0.0.1:7130/api" -ForegroundColor Blue
+Write-Host "  InsForge:     $insforgeUrl" -ForegroundColor Blue
 Write-Host "  Temporal:     localhost:7233" -ForegroundColor Green
 Write-Host ""
 Write-Host "Press any key to stop all servers..." -ForegroundColor Yellow
@@ -101,4 +87,3 @@ Write-Host "Shutting down all processes..." -ForegroundColor Red
 Get-Process -Name "node" -ErrorAction SilentlyContinue | Stop-Process -Force
 Get-Process -Name "ngrok" -ErrorAction SilentlyContinue | Stop-Process -Force
 Write-Host "Done." -ForegroundColor Green
-docker compose -f "$insforgeBackend\docker-compose.prod.yml" stop | Out-Null

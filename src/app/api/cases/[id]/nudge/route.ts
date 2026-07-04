@@ -33,6 +33,8 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     relatedResourceType: "missing_document",
     relatedResourceId: id,
     sentBy: session.profileId,
+    preference: "sms_on_update",
+    preferenceUserId: bundle.enrollment.user_id,
   });
 
   await logAudit({

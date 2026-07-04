@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { SERVICE_WEIGHTS } from "@/lib/health-score";
 
 export default function DashboardPage() {
@@ -10,12 +9,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const uid = document.cookie.match(/d_user_id=([^;]+)/)?.[1];
-    if (!uid) return;
-    getSupabaseAdmin().from("service_enrollments").select("*").eq("user_id", uid).order("created_at", { ascending: false }).then(({ data }) => {
-      setEnrollments(data || []);
-      setLoading(false);
-    });
+    fetch("/api/services/enroll", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setEnrollments(data.enrollments || []))
+      .finally(() => setLoading(false));
   }, []);
 
   const healthScore = calculateHealthScore(enrollments);

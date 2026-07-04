@@ -1,16 +1,11 @@
 import { NextResponse } from "next/server";
 import { cookies } from "next/headers";
-import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { LEGACY_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME } from "@/lib/session-token";
 
 export async function POST() {
   const store = await cookies();
-  const authId = store.get("d_user_id")?.value;
-  if (authId) {
-    try {
-      const admin = getSupabaseAdmin();
-      await admin.from("user_profiles").update({ is_active: false, updated_at: new Date().toISOString() }).eq("auth_user_id", authId);
-    } catch {}
-  }
-  store.delete("d_user_id");
+  store.delete(SESSION_COOKIE_NAME);
+  store.delete(LEGACY_SESSION_COOKIE_NAME);
+  store.delete("d_2fa_challenge");
   return NextResponse.json({ success: true }, { status: 200 });
 }

@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { allowsNotificationPreference, type NotificationPreferenceKey } from "@/lib/notification-preferences";
 import { TextBeeProvider } from "./providers/textbee";
 import { VendelProvider } from "./providers/vendel";
 import type { SmsHealthResult, SmsProvider, SmsProviderName, SmsSendResult } from "./types";
@@ -9,6 +10,10 @@ export interface SendSmsOptions {
   relatedResourceType?: string;
   relatedResourceId?: string;
   sentBy?: string;
+  preference?: NotificationPreferenceKey;
+  preferenceUserId?: string | null;
+  preferenceEmail?: string | null;
+  bypassPreferences?: boolean;
 }
 
 export function normalizePhone(phone: string) {
@@ -28,6 +33,18 @@ export async function sendSms(to: string, body: string, options: SendSmsOptions 
 
   if (!phone) {
     const result: SmsSendResult = { success: false, provider: logProvider, error: "Missing recipient phone number" };
+    await logSms(phone, body, result, options);
+    return result;
+  }
+
+  const allowed = await allowsNotificationPreference({
+    userId: options.preferenceUserId,
+    email: options.preferenceEmail,
+    key: options.preference,
+    bypass: options.bypassPreferences,
+  });
+  if (!allowed) {
+    const result: SmsSendResult = { success: false, provider: logProvider, error: "SMS disabled by notification preferences" };
     await logSms(phone, body, result, options);
     return result;
   }

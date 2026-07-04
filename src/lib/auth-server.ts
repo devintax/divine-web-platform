@@ -1,10 +1,13 @@
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import type { UserRole } from "@/lib/rbac/roles";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session-token";
 
 export async function getAuthSession() {
   const store = await cookies();
-  const authId = store.get("d_user_id")?.value || null;
+  const sessionToken = store.get(SESSION_COOKIE_NAME)?.value || null;
+  const sessionPayload = verifySessionToken(sessionToken);
+  const authId = sessionPayload?.authId || null;
   if (!authId) return null;
 
   const admin = getSupabaseAdmin();

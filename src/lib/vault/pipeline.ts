@@ -2,6 +2,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/sms";
 import { containsMalwareSignature } from "@/lib/vault/security";
+import { compressPdf } from "@/lib/stirling";
 
 export async function promoteVaultDocument(documentId: string) {
   const admin = getSupabaseAdmin();
@@ -26,8 +27,10 @@ export async function promoteVaultDocument(documentId: string) {
   }
 
   const finalName = safeObjectName(doc.display_name || doc.file_name || "document");
+  const processed = await processCleanDocument(buffer, finalName, doc.mime_type || "");
   const vaultKey = `vault/${doc.user_id}/${doc.category || "general"}/${Date.now()}_${finalName}`;
-  const { data: uploaded, error: uploadError } = await admin.storage.from("dfg-vault").upload(vaultKey, blob, {
+  const vaultBlob = new Blob([processed.buffer as any], { type: doc.mime_type || "application/octet-stream" });
+  const { data: uploaded, error: uploadError } = await admin.storage.from("dfg-vault").upload(vaultKey, vaultBlob, {
     contentType: doc.mime_type || "application/octet-stream",
     upsert: false,
   });
@@ -46,13 +49,42 @@ export async function promoteVaultDocument(documentId: string) {
     storage_path: uploaded?.key || vaultKey,
     storage_key: uploaded?.key || vaultKey,
     storage_url: uploaded?.url || "",
-    scan_notes: "Malware scan passed and object promoted from quarantine",
+    scan_notes: processed.note || "Malware scan passed and object promoted from quarantine",
     routed_to: mapPod(doc.category || "general"),
   }).eq("id", documentId);
 
-  await logAudit({ action: "vault_scan_passed", userId: doc.user_id, resourceType: "vault_document", resourceId: documentId, eventCategory: "vault", metadata: { display_name: doc.display_name, category: doc.category } });
+  await logAudit({ action: "vault_scan_passed", userId: doc.user_id, resourceType: "vault_document", resourceId: documentId, eventCategory: "vault", metadata: { display_name: doc.display_name, category: doc.category, original_size: buffer.length, final_size: processed.buffer.length, pdf_processed: processed.didProcess } });
   await notifyClientDocumentClean(doc, documentId);
   return { status: "clean" };
+}
+
+async function processCleanDocument(buffer: Buffer, filename: string, mimeType: string) {
+  if (mimeType !== "application/pdf") {
+    return { buffer, didProcess: false, note: "Malware scan passed and object promoted from quarantine" };
+  }
+
+  try {
+    const compressed = await compressPdf(buffer, filename, "medium");
+    if (compressed.length > 0 && compressed.length < buffer.length) {
+      return {
+        buffer: compressed,
+        didProcess: true,
+        note: `Malware scan passed, PDF compressed by Stirling-PDF (${buffer.length} -> ${compressed.length} bytes), and object promoted from quarantine`,
+      };
+    }
+    return {
+      buffer,
+      didProcess: true,
+      note: "Malware scan passed, Stirling-PDF compression returned no size reduction, and object promoted from quarantine",
+    };
+  } catch (error) {
+    console.warn("[vault] Stirling-PDF compression skipped:", error instanceof Error ? error.message : error);
+    return {
+      buffer,
+      didProcess: false,
+      note: "Malware scan passed and object promoted from quarantine; Stirling-PDF compression was unavailable",
+    };
+  }
 }
 
 function safeObjectName(value: string) {
@@ -100,7 +132,7 @@ async function notifyClientDocumentClean(doc: any, documentId: string) {
     await sendSms(
       client.phone,
       `Hi ${client.legal_name || "there"}! DFG received your document "${doc.display_name || doc.file_name || "document"}". It passed our security scan and your specialist has been notified. Questions? Call (302) 322-5515.`,
-      { relatedResourceType: "document", relatedResourceId: documentId },
+      { relatedResourceType: "document", relatedResourceId: documentId, preference: "sms_on_update", preferenceUserId: doc.user_id },
     );
   } catch (error) {
     console.warn("[vault] Document-clean SMS notification failed:", error instanceof Error ? error.message : error);

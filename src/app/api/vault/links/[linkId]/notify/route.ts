@@ -37,7 +37,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lin
     const sms = await sendSms(
       client.phone,
       `Hi ${client.legal_name || "there"}! DFG sent you a secure document upload link. Upload here: ${uploadUrl}. Questions? Call (302) 322-5515.`,
-      { relatedResourceType: "upload_link", relatedResourceId: linkId, sentBy: session.profileId },
+      { relatedResourceType: "upload_link", relatedResourceId: linkId, sentBy: session.profileId, preference: "sms_on_update", preferenceUserId: client.id },
     );
     smsSent = sms.success;
     if (sms.success) await admin.from("upload_links").update({ sms_sent_at: new Date().toISOString() }).eq("id", linkId);

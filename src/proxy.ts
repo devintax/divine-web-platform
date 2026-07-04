@@ -6,10 +6,10 @@ export const config = {
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
+  const session = request.cookies.get("d_session")?.value;
 
   if (pathname.startsWith("/portal")) {
-    const uid = request.cookies.get("d_user_id")?.value;
-    if (!uid) {
+    if (!session) {
       const url = request.nextUrl.clone();
       url.pathname = "/login";
       url.searchParams.set("redirect", pathname);
@@ -19,7 +19,7 @@ export async function proxy(request: NextRequest) {
 
   if (
     (pathname === "/login" || pathname === "/signup") &&
-    request.cookies.get("d_user_id")
+    session
   ) {
     return NextResponse.redirect(new URL("/portal", request.url));
   }

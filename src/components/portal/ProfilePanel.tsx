@@ -169,6 +169,16 @@ export default function ProfilePanel() {
 
       {tab === "account" && (
         <section className="bg-white border border-border rounded-xl p-5 space-y-4">
+          <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+            <Toggle
+              label="Require two-factor verification for this account"
+              checked={form.settings?.two_factor_enabled === true}
+              onChange={(value) => updateSetting("two_factor_enabled", value)}
+            />
+            <p className="mt-3 text-xs leading-6 text-muted">
+              When enabled, sign-in requires a 6-digit verification code sent to your account email after your password is accepted.
+            </p>
+          </div>
           <div className="grid sm:grid-cols-2 gap-4 text-sm">
             <Info label="Role" value={profile?.role || "client"} />
             <Info label="Member since" value={profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "Not available"} />

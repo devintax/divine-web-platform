@@ -7,8 +7,9 @@ const SUPER_ADMIN_EMAIL = 'admin@dfgworld.com'
 const SUPER_ADMIN_NAME = 'DFG Super Admin'
 const OUTPUT_FILE = path.resolve(process.cwd(), '.super-admin-credentials.txt')
 
-const INSFORGE_URL = (process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || 'http://localhost:7130').trim()
+const INSFORGE_URL = (process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || 'https://insforge.dfgworld.net').trim()
 const INSFORGE_ANON_KEY = (process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || process.env.INSFORGE_ANON_KEY || '').trim()
+const INSFORGE_SERVER_KEY = (process.env.INSFORGE_SERVICE_KEY || INSFORGE_ANON_KEY).trim()
 
 if (!INSFORGE_ANON_KEY) {
   throw new Error('Missing InsForge anon key. Set NEXT_PUBLIC_INSFORGE_ANON_KEY or INSFORGE_ANON_KEY.')
@@ -16,7 +17,7 @@ if (!INSFORGE_ANON_KEY) {
 
 const insforgeServer = createClient({
   baseUrl: INSFORGE_URL,
-  anonKey: INSFORGE_ANON_KEY,
+  anonKey: INSFORGE_SERVER_KEY,
   isServerMode: true,
 })
 
@@ -60,16 +61,18 @@ async function run() {
   }
 
   const profilePayload = {
+    id: userId,
     auth_user_id: userId,
     role: 'super_admin',
     email: SUPER_ADMIN_EMAIL,
     legal_name: SUPER_ADMIN_NAME,
+    is_active: true,
     created_at: new Date().toISOString(),
   }
 
   const { error: profileError } = await insforgeServer.database
     .from('user_profiles')
-    .upsert(profilePayload, { onConflict: 'auth_user_id' })
+    .upsert(profilePayload, { onConflict: 'id' })
 
   if (profileError) {
     throw new Error(`Failed to create user profile: ${profileError.message || JSON.stringify(profileError)}`)

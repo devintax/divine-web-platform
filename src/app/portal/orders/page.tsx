@@ -9,6 +9,12 @@ type Enrollment = {
   service_type: string;
   status: string;
   progress: number | null;
+  intake_data?: {
+    payment_completed?: boolean;
+    payment_required?: boolean;
+    stripe_session?: string;
+    stripe_amount_total?: number;
+  } | null;
   created_at: string | null;
   updated_at: string | null;
   workflow_id?: string | null;
@@ -38,6 +44,7 @@ type Deliverable = {
   id: string;
   title: string;
   description?: string | null;
+  deliverable_type?: string | null;
   requires_approval?: boolean;
   client_approved?: boolean;
   created_at?: string | null;
@@ -63,6 +70,14 @@ const SERVICE_META: Record<string, { label: string; color: string; href: string 
   insurance: { label: "Auto Insurance", color: "#D97706", href: "/portal/intake?service=insurance" },
   notary: { label: "Notary Services", color: "#C8102E", href: "/portal/intake?service=notary" },
   bookkeeping: { label: "Bookkeeping", color: "#7C3AED", href: "/portal/intake?service=bookkeeping" },
+};
+
+const SERVICE_PRICES: Record<string, number> = {
+  tax: 29900,
+  formation: 49900,
+  insurance: 0,
+  notary: 9900,
+  bookkeeping: 19900,
 };
 
 export default function OrdersPage() {
@@ -127,6 +142,9 @@ function OrderCard({ order, reload }: { order: Enrollment; reload: () => Promise
   const deliverables = order.case_deliverables || [];
   const pendingApprovals = deliverables.filter((doc) => doc.requires_approval && !doc.client_approved);
   const checklist = order.case_checklist_items || [];
+  const price = SERVICE_PRICES[order.service_type] || 0;
+  const paymentComplete = order.intake_data?.payment_completed === true || Boolean(order.intake_data?.stripe_session);
+  const paymentRequired = price > 0 && !paymentComplete && order.status !== "completed" && order.status !== "cancelled";
 
   return (
     <Card className="space-y-4" style={{ borderLeft: `4px solid ${meta.color}` }}>
@@ -149,6 +167,7 @@ function OrderCard({ order, reload }: { order: Enrollment; reload: () => Promise
       </div>
 
       {order.client_message && <div className="rounded-xl bg-blue-50 border border-blue-100 text-[#0B4DA2] text-sm font-semibold px-4 py-3">{order.client_message}</div>}
+      {paymentRequired && <PaymentPrompt order={order} price={price} />}
 
       <div>
         <div className="flex items-center justify-between text-[11px] font-bold text-muted mb-1">
@@ -175,6 +194,56 @@ function OrderCard({ order, reload }: { order: Enrollment; reload: () => Promise
       <Deliverables order={order} deliverables={deliverables} reload={reload} />
       <Messages order={order} reload={reload} />
     </Card>
+  );
+}
+
+function PaymentPrompt({ order, price }: { order: Enrollment; price: number }) {
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
+
+  async function startCheckout() {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/payments/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ enrollmentId: order.id, serviceType: order.service_type }),
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        setError(data.error || "Could not start checkout.");
+        return;
+      }
+      if (data.free) return;
+      if (data.checkoutUrl) {
+        window.location.href = data.checkoutUrl;
+        return;
+      }
+      setError("Checkout did not return a payment link.");
+    } catch {
+      setError("Payment service is unavailable. Please try again or call (302) 322-5515.");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-blue-100 bg-blue-50 p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <div className="text-sm font-black text-[#0B4DA2]">Payment needed</div>
+          <p className="mt-1 text-xs font-semibold text-muted">
+            Complete checkout for ${(price / 100).toFixed(2)} so staff can continue this service.
+          </p>
+          {error && <p className="mt-2 text-xs font-bold text-[#C8102E]">{error}</p>}
+        </div>
+        <button disabled={loading} onClick={startCheckout} className="rounded-xl bg-[#0B4DA2] px-4 py-2 text-xs font-bold text-white disabled:opacity-60">
+          {loading ? "Opening..." : "Pay Now"}
+        </button>
+      </div>
+    </div>
   );
 }
 
@@ -242,6 +311,7 @@ function MissingDocumentItem({ doc, reload }: { doc: MissingDocument; reload: ()
 
 function Deliverables({ order, deliverables, reload }: { order: Enrollment; deliverables: Deliverable[]; reload: () => Promise<void> }) {
   const [busyId, setBusyId] = useState("");
+  const [signingId, setSigningId] = useState("");
   if (deliverables.length === 0) return null;
 
   async function approve(deliverableId: string) {
@@ -256,6 +326,23 @@ function Deliverables({ order, deliverables, reload }: { order: Enrollment; deli
     await reload();
   }
 
+  async function openSigning(doc: Deliverable) {
+    const submissionId = getDocusealSubmissionId(doc);
+    if (!submissionId) return;
+    setSigningId(doc.id);
+    try {
+      const res = await fetch(`/api/portal/signing-url?submissionId=${encodeURIComponent(submissionId)}`, { credentials: "include" });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.signingUrl) {
+        window.open(data.signingUrl, "_blank", "noopener,noreferrer");
+      } else {
+        window.alert(data.error || "Could not open signing link.");
+      }
+    } finally {
+      setSigningId("");
+    }
+  }
+
   return (
     <div className="rounded-xl border border-border p-4">
       <h3 className="text-sm font-black text-ink">Completed Work</h3>
@@ -264,10 +351,14 @@ function Deliverables({ order, deliverables, reload }: { order: Enrollment; deli
           <div key={doc.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-lg bg-soft p-3">
             <div>
               <div className="text-sm font-bold text-ink">{doc.title}</div>
-              {doc.description && <div className="text-xs text-muted mt-1">{doc.description}</div>}
-              <div className="text-[11px] text-muted mt-1">{doc.requires_approval ? (doc.client_approved ? "Approved" : "Awaiting your approval") : "Delivered to your vault"}</div>
+              {doc.description && !isSignatureDeliverable(doc) && <div className="text-xs text-muted mt-1">{doc.description}</div>}
+              <div className="text-[11px] text-muted mt-1">{deliverableStatusText(doc)}</div>
             </div>
-            {doc.requires_approval && !doc.client_approved ? (
+            {isSignatureDeliverable(doc) && !doc.client_approved ? (
+              <button disabled={signingId === doc.id || !getDocusealSubmissionId(doc)} onClick={() => openSigning(doc)} className="px-3 py-2 rounded-xl bg-[#C8102E] text-white text-xs font-bold">
+                {signingId === doc.id ? "Opening..." : "Sign Now"}
+              </button>
+            ) : doc.requires_approval && !doc.client_approved ? (
               <button disabled={busyId === doc.id} onClick={() => approve(doc.id)} className="px-3 py-2 rounded-xl bg-green-700 text-white text-xs font-bold">
                 {busyId === doc.id ? "Approving..." : "Approve"}
               </button>
@@ -279,6 +370,20 @@ function Deliverables({ order, deliverables, reload }: { order: Enrollment; deli
       </div>
     </div>
   );
+}
+
+function isSignatureDeliverable(doc: Deliverable) {
+  return doc.deliverable_type === "signature" || Boolean(getDocusealSubmissionId(doc));
+}
+
+function getDocusealSubmissionId(doc: Deliverable) {
+  return doc.description?.match(/DocuSeal submission\s+([^\s|]+)/i)?.[1] || null;
+}
+
+function deliverableStatusText(doc: Deliverable) {
+  if (isSignatureDeliverable(doc)) return doc.client_approved ? "Signed" : "Signature requested";
+  if (doc.requires_approval) return doc.client_approved ? "Approved" : "Awaiting your approval";
+  return "Delivered to your vault";
 }
 
 function Messages({ order, reload }: { order: Enrollment; reload: () => Promise<void> }) {

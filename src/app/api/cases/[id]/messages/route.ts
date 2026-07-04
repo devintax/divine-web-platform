@@ -5,6 +5,7 @@ import { loadCaseBundle, canReadCase } from "@/lib/case-records";
 import { DFGEmail } from "@/lib/email/dfg-email";
 import { sendSms } from "@/lib/sms";
 import { SERVICE_WORKFLOW, isServiceType } from "@/lib/service-workflow";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAuthSession();
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       await sendSms(
         bundle.client.phone,
         `Hi ${bundle.client.legal_name || "there"}! Your Divine Financial Group specialist sent you a message. View it at ${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/portal/orders. Questions? Call (302) 322-5515.`,
-        { relatedResourceType: "case_message", relatedResourceId: id, sentBy: session.profileId },
+        { relatedResourceType: "case_message", relatedResourceId: id, sentBy: session.profileId, preference: "sms_on_message", preferenceUserId: bundle.enrollment.user_id },
       );
     }
   }
@@ -59,7 +60,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const serviceLabel = isServiceType(serviceType)
       ? SERVICE_WORKFLOW[serviceType].label
       : "service";
-    await DFGEmail.newMessage(bundle.client?.email, bundle.client?.legal_name, serviceLabel);
+    await DFGEmail.newMessage(bundle.client?.email, bundle.client?.legal_name, serviceLabel, bundle.enrollment.user_id);
+    await createNotification({
+      userId: bundle.enrollment.user_id,
+      title: "New specialist message",
+      body: `Your ${serviceLabel} specialist sent you a message.`,
+      type: "message",
+      href: "/portal/orders",
+      relatedResourceType: "case_message",
+      relatedResourceId: data.id,
+    });
   }
 
   return NextResponse.json({ success: true, message: data });

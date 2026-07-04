@@ -24,10 +24,11 @@ export default function SignupPage() {
       const res = await fetch("/api/auth/signup", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ email, password, name }) });
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Signup failed"); setLoading(false); return; }
-      if (data.userId) {
-        document.cookie = `d_user_id=${data.userId};path=/;SameSite=Lax`;
+      if (data.requiresEmailVerification || data.success) {
+        setSuccess(true);
+      } else {
         router.push("/portal"); router.refresh();
-      } else { setSuccess(true); }
+      }
     } catch { setError("An unexpected error occurred."); setLoading(false); }
   }
 

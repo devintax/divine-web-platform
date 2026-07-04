@@ -1,16 +1,21 @@
 "use client";
 
-import { BotMessageSquare, BriefcaseBusiness, Home, KeyRound, LogOut, ShieldCheck, UserRound, Vault } from "lucide-react";
+import { BotMessageSquare, BriefcaseBusiness, Building2, CalendarDays, FileSignature, Home, KeyRound, LogOut, ReceiptText, ShieldCheck, UserRound, Vault } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import { UniversalSearch } from "@/components/portal/admin/UniversalSearch";
+import { NotificationBell } from "@/components/portal/NotificationBell";
 
 const ALL_NAV = [
   { path: "/portal", icon: Home, label: "Dashboard", exact: true },
   { path: "/portal/intake", icon: BriefcaseBusiness, label: "Services" },
+  { path: "/portal/entities", icon: Building2, label: "Entities" },
+  { path: "/portal/bookkeeping", icon: ReceiptText, label: "Books" },
   { path: "/portal/vault", icon: Vault, label: "Vault" },
+  { path: "/portal/appointments", icon: CalendarDays, label: "Appointments" },
+  { path: "/portal/esign", icon: FileSignature, label: "E-Sign" },
   { path: "/portal/profile", icon: UserRound, label: "Profile" },
   { path: "/portal/chat", icon: BotMessageSquare, label: "Chat" },
   { path: "/portal/admin", icon: ShieldCheck, label: "Admin", staffOnly: true },
@@ -22,6 +27,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname() || "";
   const [profile, setProfile] = useState<any>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [unreadMessages, setUnreadMessages] = useState(0);
+  const [liveConnected, setLiveConnected] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -38,6 +45,26 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     if (showMenu) document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [showMenu]);
+
+  useEffect(() => {
+    if (typeof EventSource === "undefined") return;
+    const source = new EventSource("/api/portal/events");
+    source.onopen = () => setLiveConnected(true);
+    source.addEventListener("portal-update", (event) => {
+      try {
+        const data = JSON.parse((event as MessageEvent).data);
+        setUnreadMessages(Number(data.unreadMessages || 0));
+      } catch {}
+    });
+    source.onerror = () => {
+      setLiveConnected(false);
+      source.close();
+    };
+    return () => {
+      setLiveConnected(false);
+      source.close();
+    };
+  }, []);
 
   const role = profile?.role || "";
   const isStaff = STAFF_ROLES.has(role);
@@ -104,7 +131,9 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
             </div>
           )}
           {profile && (
-            <div ref={menuRef} className="relative">
+            <div ref={menuRef} className="relative flex items-center gap-2">
+              <span className={`hidden sm:inline-flex h-2 w-2 rounded-full ${liveConnected ? "bg-green-500" : "bg-slate-300"}`} title={liveConnected ? "Live updates connected" : "Live updates offline"} />
+              <NotificationBell />
               <button
                 onClick={() => setShowMenu(!showMenu)}
                 className="w-9 h-9 rounded-full bg-[#0B4DA2] text-white text-xs font-black grid place-items-center hover:bg-[#083a7a]"
@@ -119,7 +148,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                     <div className="text-[11px] text-muted truncate">{profile.email}</div>
                     <div className="text-[10px] text-[#0B4DA2] font-bold uppercase mt-1">{role}</div>
                   </div>
-                  <MenuLink href="/portal" icon={Home} label="Dashboard" />
+                  <MenuLink href="/portal" icon={Home} label={unreadMessages > 0 ? `Dashboard (${unreadMessages})` : "Dashboard"} />
                   <MenuLink href="/portal/profile" icon={UserRound} label="Profile & Settings" />
                   <MenuLink href="/reset-password" icon={KeyRound} label="Change Password" />
                   {isStaff && <MenuLink href="/portal/admin" icon={ShieldCheck} label="Admin Portal" />}
@@ -170,7 +199,11 @@ function MenuLink({ href, icon: Icon, label }: { href: string; icon: ComponentTy
 function getBreadcrumb(pathname: string): string {
   if (pathname === "/portal" || pathname === "/portal/" || pathname === "/portal/dashboard") return "Portal > Dashboard";
   if (pathname.startsWith("/portal/intake")) return "Portal > Service Intakes";
+  if (pathname.startsWith("/portal/entities")) return "Portal > Entities";
+  if (pathname.startsWith("/portal/bookkeeping")) return "Portal > Bookkeeping";
   if (pathname.startsWith("/portal/vault")) return "Portal > Secure Vault";
+  if (pathname.startsWith("/portal/appointments")) return "Portal > Appointments";
+  if (pathname.startsWith("/portal/esign")) return "Portal > E-Signature";
   if (pathname.startsWith("/portal/profile")) return "Portal > Profile";
   if (pathname.startsWith("/portal/chat")) return "Portal > AI Concierge";
   if (pathname.startsWith("/portal/admin")) return "Portal > Staff Admin";

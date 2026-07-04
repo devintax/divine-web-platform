@@ -1,193 +1,189 @@
 "use client";
 
 import { useState } from "react";
-import { Pill, Btn, Card } from "@/components/ui";
+import { ArrowRight, Camera, Clock, Globe, Mail, MapPin, MessageCircle, Phone, Send, Share2, ShieldCheck, type LucideIcon } from "lucide-react";
+import { Btn, Pill } from "@/components/ui";
 import { BRAND } from "@/lib/constants";
 
+const initialForm = { name: "", email: "", phone: "", service: "", message: "" };
+
 export default function ContactPage() {
-  const [form, setForm] = useState({ name: "", email: "", phone: "", service: "", message: "" });
+  const [form, setForm] = useState(initialForm);
   const [sent, setSent] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
-  const hours = [
-    { day: "Monday – Friday", time: "9:00 AM – 5:00 PM", color: "text-success" },
-    { day: "Saturday (Tax Season)", time: "10:00 AM – 2:00 PM", color: "text-warning" },
-    { day: "Sunday", time: "Closed", color: "text-accent" },
-  ];
-
-  const contacts = [
-    { icon: "📍", label: "Address", value: "622 E. Basin Road, Suite A\nNew Castle, DE 19720" },
-    { icon: "📞", label: "Phone", value: BRAND.phone },
-    { icon: "📠", label: "Fax", value: BRAND.fax },
-    { icon: "💬", label: "Text / WhatsApp", value: `${BRAND.text}\n${BRAND.whatsapp}` },
-    { icon: "✉", label: "Email", value: BRAND.email },
-    { icon: "🌐", label: "Website", value: BRAND.website },
-  ];
-
-  const social = [
-    { label: "Facebook", url: BRAND.facebook, icon: "👥" },
-    { label: "X / Twitter", url: BRAND.twitter, icon: "🐦" },
-    { label: "Instagram", url: BRAND.instagram, icon: "📸" },
-  ];
+  async function submitContact() {
+    setError("");
+    setLoading(true);
+    try {
+      const res = await fetch("/api/contact", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(form),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "Failed to send. Please try again.");
+        return;
+      }
+      setSent(true);
+      setForm(initialForm);
+    } catch {
+      setError("Network error. Please check your connection.");
+    } finally {
+      setLoading(false);
+    }
+  }
 
   return (
     <>
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-primary to-primary-dark py-[72px] px-6 text-white">
-        <div className="max-w-[700px] mx-auto text-center">
-          <Pill tone="white">Get in Touch</Pill>
-          <h1 className="text-3xl lg:text-[38px] font-black mt-4 leading-tight">
-            Let&apos;s Secure Your Financial Future
+      <section className="bg-primary px-4 py-16 text-white md:px-6 lg:py-20">
+        <div className="mx-auto max-w-[820px] text-center">
+          <Pill tone="white">Contact</Pill>
+          <h1 className="mt-5 text-[clamp(32px,5vw,50px)] font-black leading-tight">
+            Talk with Divine Financial Group.
           </h1>
-          <p className="text-[15px] opacity-90 mt-4 leading-7">
-            We&apos;re here to help you take control of your financial future with expert guidance and reliable financial solutions.
+          <p className="mx-auto mt-5 max-w-[650px] text-[15px] leading-8 text-white/85">
+            Tell us what you need help with. A team member will follow up with the right next step.
           </p>
         </div>
       </section>
 
-      <section className="py-[72px] px-6 bg-white">
-        <div className="max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-[1fr_400px] gap-12 items-start">
-          {/* Form */}
+      <section className="bg-white px-4 py-16 md:px-6 lg:py-20">
+        <div className="mx-auto grid max-w-[1200px] gap-10 lg:grid-cols-[1fr_390px] lg:items-start">
           <div>
-            <Pill tone="blue">Send Us a Message</Pill>
-            <h2 className="text-[26px] font-black mt-3.5 mb-7">Contact Divine Financial Group</h2>
+            <Pill tone="blue">Send a message</Pill>
+            <h2 className="mt-3 text-[clamp(28px,4vw,38px)] font-black text-ink">How can we help?</h2>
 
             {sent ? (
-              <div className="bg-emerald-50 border border-emerald-200 rounded-[20px] p-10 text-center">
-                <div className="text-5xl">✅</div>
-                <div className="font-extrabold text-xl mt-4 text-success">Message Sent!</div>
-                <p className="text-muted mt-2">We&apos;ll be in touch within one business day.</p>
-                <button onClick={() => setSent(false)} className="mt-5 px-5 py-2 border border-border rounded-xl bg-white font-bold text-sm cursor-pointer">
-                  Send Another
+              <div className="mt-7 rounded-xl border border-emerald-200 bg-emerald-50 p-8 text-center">
+                <ShieldCheck className="mx-auto text-success" size={38} />
+                <div className="mt-4 text-xl font-black text-success">Message sent</div>
+                <p className="mt-2 text-sm leading-7 text-muted">We will be in touch within one business day.</p>
+                <button onClick={() => setSent(false)} className="mt-5 rounded-xl border border-border bg-white px-5 py-2 text-sm font-bold text-ink">
+                  Send another message
                 </button>
               </div>
             ) : (
-              <div className="flex flex-col gap-4">
-                {[
-                  { key: "name", label: "Full Name", ph: "Your full name", type: "text" },
-                  { key: "email", label: "Email Address", ph: "your@email.com", type: "email" },
-                  { key: "phone", label: "Phone Number", ph: "(302) 000-0000", type: "tel" },
-                ].map((f) => (
-                  <div key={f.key}>
-                    <label className="text-xs font-bold text-muted block mb-1.5">{f.label}</label>
-                    <input
-                      type={f.type}
-                      placeholder={f.ph}
-                      value={form[f.key as keyof typeof form]}
-                      onChange={(e) => setForm((p) => ({ ...p, [f.key]: e.target.value }))}
-                      className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-primary transition-colors"
-                    />
+              <div className="mt-7 grid gap-4">
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Full name" value={form.name} onChange={(value) => setForm((prev) => ({ ...prev, name: value }))} placeholder="Your full name" />
+                  <Field label="Email address" value={form.email} onChange={(value) => setForm((prev) => ({ ...prev, email: value }))} placeholder="you@example.com" type="email" />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <Field label="Phone number" value={form.phone} onChange={(value) => setForm((prev) => ({ ...prev, phone: value }))} placeholder="(302) 000-0000" type="tel" />
+                  <div>
+                    <label className="mb-1.5 block text-xs font-bold text-muted">Service of interest</label>
+                    <select
+                      value={form.service}
+                      onChange={(e) => setForm((prev) => ({ ...prev, service: e.target.value }))}
+                      className="w-full rounded-xl border-[1.5px] border-border bg-white px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+                    >
+                      <option value="">Select a service</option>
+                      <option>Tax Preparation</option>
+                      <option>Business Formation</option>
+                      <option>Insurance Support</option>
+                      <option>Notary Services</option>
+                      <option>Bookkeeping</option>
+                      <option>General Inquiry</option>
+                    </select>
                   </div>
-                ))}
-                <div>
-                  <label className="text-xs font-bold text-muted block mb-1.5">Service of Interest</label>
-                  <select
-                    value={form.service}
-                    onChange={(e) => setForm((p) => ({ ...p, service: e.target.value }))}
-                    className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none bg-white focus:border-primary"
-                  >
-                    <option value="">Select a service...</option>
-                    <option>Tax Preparation & Planning</option>
-                    <option>Business Formation & Consulting</option>
-                    <option>Auto & Life Insurance</option>
-                    <option>Notary Public Services</option>
-                    <option>Bookkeeping & Payroll</option>
-                    <option>General Inquiry</option>
-                  </select>
                 </div>
                 <div>
-                  <label className="text-xs font-bold text-muted block mb-1.5">Message</label>
+                  <label className="mb-1.5 block text-xs font-bold text-muted">Message</label>
                   <textarea
-                    placeholder="Tell us how we can help you..."
+                    placeholder="Tell us how we can help..."
                     value={form.message}
-                    onChange={(e) => setForm((p) => ({ ...p, message: e.target.value }))}
-                    className="w-full h-[120px] border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none resize-y focus:border-primary"
+                    onChange={(e) => setForm((prev) => ({ ...prev, message: e.target.value }))}
+                    className="h-[130px] w-full resize-y rounded-xl border-[1.5px] border-border px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
                   />
                 </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-accent text-sm font-semibold rounded-xl px-4 py-3">
-                    {error}
-                  </div>
-                )}
-                <Btn variant="primary" sz="lg" onClick={async () => {
-                  setError("");
-                  setLoading(true);
-                  try {
-                    const res = await fetch("/api/contact", {
-                      method: "POST",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify(form),
-                    });
-                    const data = await res.json();
-                    if (res.ok) {
-                      setSent(true);
-                    } else {
-                      setError(data.error || "Failed to send. Please try again.");
-                    }
-                  } catch {
-                    setError("Network error. Please check your connection.");
-                  } finally {
-                    setLoading(false);
-                  }
-                }} disabled={loading} className={loading ? "!opacity-60" : ""}>
-                  {loading ? "Sending..." : "Send Message →"}
+                {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-semibold text-accent">{error}</div>}
+                <Btn variant="primary" sz="lg" onClick={submitContact} disabled={loading} className={loading ? "!opacity-60" : ""}>
+                  {loading ? "Sending..." : "Send message"} {!loading && <Send size={17} />}
                 </Btn>
-                <p className="text-[11px] text-muted text-center">
-                  We respond within one business day. Your information is kept strictly confidential.
-                </p>
+                <p className="text-center text-[11px] text-muted">Your information is kept confidential and used only to respond to your request.</p>
               </div>
             )}
           </div>
 
-          {/* Sidebar */}
-          <div className="flex flex-col gap-5">
-            <Card className="border-t-[3px] border-t-primary">
-              <div className="font-black text-[15px] mb-5">📍 Contact Information</div>
-              {contacts.map((c) => (
-                <div key={c.label} className="flex gap-3 mb-4 pb-4 border-b border-border last:border-0 last:mb-0 last:pb-0">
-                  <div className="w-9 h-9 bg-blue-50 rounded-[10px] shrink-0 flex items-center justify-center text-base">
-                    {c.icon}
-                  </div>
-                  <div>
-                    <div className="text-[10px] font-bold text-muted mb-0.5">{c.label}</div>
-                    <div className="text-[13px] font-bold text-ink whitespace-pre-line">{c.value}</div>
-                  </div>
-                </div>
-              ))}
-            </Card>
-
-            <Card>
-              <div className="font-black text-[15px] mb-4">🕐 Business Hours</div>
-              {hours.map((h) => (
-                <div key={h.day} className="flex justify-between items-center py-2.5 border-b border-border last:border-0 text-[13px]">
-                  <span className="font-semibold text-ink">{h.day}</span>
-                  <span className={`font-bold ${h.color}`}>{h.time}</span>
-                </div>
-              ))}
-            </Card>
-
-            <Card className="!bg-soft">
-              <div className="font-black text-[15px] mb-4">📱 Follow Us</div>
-              {social.map((s) => (
-                <a
-                  key={s.label}
-                  href={s.url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 py-2.5 border-b border-border last:border-0 no-underline"
-                >
-                  <div className="w-8 h-8 bg-blue-50 rounded-lg flex items-center justify-center text-base">
-                    {s.icon}
-                  </div>
-                  <span className="font-bold text-[13px] text-primary">{s.label}</span>
-                  <span className="ml-auto text-[11px] text-muted">→</span>
-                </a>
-              ))}
-            </Card>
-          </div>
+          <aside className="grid gap-4">
+            <InfoCard icon={MapPin} title="Office" lines={["622 E. Basin Road, Suite A", "New Castle, DE 19720"]} />
+            <InfoCard icon={Phone} title="Phone" lines={[BRAND.phone, `Text: ${BRAND.text}`]} />
+            <InfoCard icon={Mail} title="Email" lines={[BRAND.email]} />
+            <div className="rounded-xl border border-border bg-soft p-5">
+              <div className="flex items-center gap-2 font-black text-ink">
+                <Clock size={19} className="text-primary" /> Business hours
+              </div>
+              <div className="mt-4 grid gap-3 text-sm">
+                <Hour day="Monday - Friday" time="9:00 AM - 5:00 PM" />
+                <Hour day="Saturday" time="By appointment" />
+                <Hour day="Sunday" time="Closed" />
+              </div>
+            </div>
+            <div className="rounded-xl border border-border bg-white p-5">
+              <div className="font-black text-ink">Connect</div>
+              <div className="mt-4 grid gap-2">
+                <SocialLink href={BRAND.website} label="Website" icon={Globe} />
+                <SocialLink href={BRAND.facebook} label="Facebook" icon={Share2} />
+                <SocialLink href={BRAND.instagram} label="Instagram" icon={Camera} />
+                <SocialLink href={BRAND.whatsapp} label="WhatsApp" icon={MessageCircle} />
+              </div>
+            </div>
+          </aside>
         </div>
       </section>
     </>
+  );
+}
+
+function Field({ label, value, onChange, placeholder, type = "text" }: { label: string; value: string; onChange: (value: string) => void; placeholder: string; type?: string }) {
+  return (
+    <div>
+      <label className="mb-1.5 block text-xs font-bold text-muted">{label}</label>
+      <input
+        type={type}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        placeholder={placeholder}
+        className="w-full rounded-xl border-[1.5px] border-border px-4 py-3 text-sm outline-none transition-colors focus:border-primary"
+      />
+    </div>
+  );
+}
+
+function InfoCard({ icon: Icon, title, lines }: { icon: LucideIcon; title: string; lines: string[] }) {
+  return (
+    <div className="rounded-xl border border-border bg-white p-5">
+      <div className="flex items-center gap-2 font-black text-ink">
+        <Icon size={19} className="text-primary" /> {title}
+      </div>
+      <div className="mt-3 space-y-1 text-sm font-semibold text-muted">
+        {lines.map((line) => (
+          <div key={line}>{line}</div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function Hour({ day, time }: { day: string; time: string }) {
+  return (
+    <div className="flex items-center justify-between gap-4">
+      <span className="font-semibold text-ink">{day}</span>
+      <span className="text-right font-bold text-muted">{time}</span>
+    </div>
+  );
+}
+
+function SocialLink({ href, label, icon: Icon }: { href: string; label: string; icon: LucideIcon }) {
+  return (
+    <a href={href} target="_blank" rel="noopener noreferrer" className="flex items-center justify-between rounded-lg border border-border bg-soft px-3 py-2 text-sm font-bold text-primary">
+      <span className="flex items-center gap-2">
+        <Icon size={16} /> {label}
+      </span>
+      <ArrowRight size={15} />
+    </a>
   );
 }

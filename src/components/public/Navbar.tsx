@@ -1,109 +1,106 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Menu, Phone, ShieldCheck, X } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { Logo, Btn } from "@/components/ui";
+import { BRAND } from "@/lib/constants";
 
 const links = [
   { href: "/", label: "Home" },
-  { href: "/about", label: "About" },
   { href: "/services", label: "Services" },
+  { href: "/about", label: "About" },
   { href: "/contact", label: "Contact" },
 ];
 
 export function Navbar() {
-  const [scrolled, setScrolled] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
 
   useEffect(() => {
-    const h = () => setScrolled(window.scrollY > 20);
-    window.addEventListener("scroll", h);
-    return () => window.removeEventListener("scroll", h);
-  }, []);
+    setMobileOpen(false);
+  }, [pathname]);
 
-  // Close mobile menu on route change
-  useEffect(() => { setMobileOpen(false); }, [pathname]);
-
-  // Prevent body scroll when menu open
   useEffect(() => {
     document.body.style.overflow = mobileOpen ? "hidden" : "";
-    return () => { document.body.style.overflow = ""; };
+    return () => {
+      document.body.style.overflow = "";
+    };
   }, [mobileOpen]);
 
   return (
-    <nav
-      className={`sticky top-0 z-50 border-b border-border transition-all duration-200 ${
-        scrolled ? "bg-white/97 backdrop-blur-xl -webkit-backdrop-blur-xl" : "bg-white"
-      }`}
-    >
-      <div className="max-w-[1200px] mx-auto px-4 md:px-6 flex items-center justify-between h-[60px] md:h-[68px]">
+    <header className="sticky top-0 z-50 border-b border-border bg-white/95 backdrop-blur">
+      <div className="mx-auto flex h-[68px] max-w-[1200px] items-center justify-between px-4 md:px-6">
         <Logo />
 
-        {/* Desktop links */}
-        <div className="hidden md:flex items-center gap-1">
-          {links.map((l) => {
-            const active = pathname === l.href;
+        <nav className="hidden items-center gap-1 md:flex">
+          {links.map((link) => {
+            const active = pathname === link.href;
             return (
               <Link
-                key={l.href}
-                href={l.href}
-                className={`px-4 py-2 text-[13px] font-bold transition-colors no-underline ${
-                  active
-                    ? "text-primary border-b-2 border-primary"
-                    : "text-muted hover:text-ink border-b-2 border-transparent"
+                key={link.href}
+                href={link.href}
+                className={`rounded-lg px-4 py-2 text-[13px] font-bold transition-colors ${
+                  active ? "bg-blue-50 text-primary" : "text-muted hover:bg-slate-50 hover:text-ink"
                 }`}
               >
-                {l.label}
+                {link.label}
               </Link>
             );
           })}
-          <div className="w-px h-6 bg-border mx-2" />
+        </nav>
+
+        <div className="hidden items-center gap-3 md:flex">
+          <a href={`tel:${BRAND.phone.replace(/[^\d+]/g, "")}`} className="flex items-center gap-2 text-xs font-bold text-ink">
+            <Phone size={15} />
+            {BRAND.phone}
+          </a>
           <Link href="/login">
-            <Btn variant="primary" sz="sm" icon="🔐">
+            <Btn variant="primary" sz="sm">
               Client Portal
             </Btn>
           </Link>
         </div>
 
-        {/* Mobile hamburger */}
         <button
-          className="md:hidden p-2 text-2xl border-none bg-transparent cursor-pointer min-w-[44px] min-h-[44px] flex items-center justify-center"
-          onClick={() => setMobileOpen(!mobileOpen)}
+          className="grid h-11 w-11 place-items-center rounded-lg border border-border bg-white text-ink md:hidden"
+          onClick={() => setMobileOpen((open) => !open)}
           aria-label={mobileOpen ? "Close navigation menu" : "Open navigation menu"}
           aria-expanded={mobileOpen}
         >
-          {mobileOpen ? "✕" : "☰"}
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
         </button>
       </div>
 
-      {/* Mobile full-screen menu overlay */}
       {mobileOpen && (
-        <div className="md:hidden fixed inset-0 top-[60px] bg-white z-50 animate-slide-down safe-bottom">
-          <div className="flex flex-col p-6 gap-2">
-            {links.map((l) => (
+        <div className="fixed inset-x-0 top-[68px] z-50 border-b border-border bg-white px-4 py-5 shadow-xl md:hidden">
+          <div className="flex flex-col gap-2">
+            {links.map((link) => (
               <Link
-                key={l.href}
-                href={l.href}
-                onClick={() => setMobileOpen(false)}
-                className={`px-4 py-4 rounded-xl text-lg font-bold no-underline min-h-[52px] flex items-center active:bg-soft transition-colors ${
-                  pathname === l.href ? "bg-blue-50 text-primary" : "text-ink"
+                key={link.href}
+                href={link.href}
+                className={`rounded-xl px-4 py-4 text-base font-bold ${
+                  pathname === link.href ? "bg-blue-50 text-primary" : "text-ink hover:bg-slate-50"
                 }`}
               >
-                {l.label}
+                {link.label}
               </Link>
             ))}
-            <div className="mt-4">
-              <Link href="/login" onClick={() => setMobileOpen(false)}>
-                <Btn variant="primary" full sz="lg" className="min-h-[52px]">
-                  🔐 Client Portal
+            <div className="mt-3 rounded-xl bg-soft p-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-muted">
+                <ShieldCheck size={16} />
+                Secure client portal
+              </div>
+              <Link href="/login" className="mt-3 block">
+                <Btn variant="primary" full sz="lg">
+                  Enter Client Portal
                 </Btn>
               </Link>
             </div>
           </div>
         </div>
       )}
-    </nav>
+    </header>
   );
 }

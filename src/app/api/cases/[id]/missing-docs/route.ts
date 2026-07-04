@@ -5,6 +5,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { can } from "@/lib/rbac/can";
 import { loadCaseBundle } from "@/lib/case-records";
 import { sendSms } from "@/lib/sms";
+import { DFGEmail } from "@/lib/email/dfg-email";
+import { createNotification } from "@/lib/notifications";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAuthSession();
@@ -95,12 +97,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     const sms = await sendSms(
       bundle.client.phone,
       `Hi ${bundle.client.legal_name || "there"}! Divine Financial Group needs ${documentName}. Upload securely: ${uploadUrl}. Link expires in 48 hours. Questions? Call (302) 322-5515.`,
-      { relatedResourceType: "upload_link", relatedResourceId: uploadLink.id, sentBy: session.profileId },
+      { relatedResourceType: "upload_link", relatedResourceId: uploadLink.id, sentBy: session.profileId, preference: "sms_on_update", preferenceUserId: bundle.enrollment.user_id },
     );
     if (sms.success) {
       await admin.from("upload_links").update({ sms_sent_at: new Date().toISOString() }).eq("id", uploadLink.id);
     }
   }
+  await DFGEmail.documentRequested(bundle.client?.email, bundle.client?.legal_name, documentName, uploadUrl, uploadLink.expires_at, bundle.enrollment.user_id);
+  await createNotification({
+    userId: bundle.enrollment.user_id,
+    title: "Document needed",
+    body: `${documentName} is needed for your case.`,
+    type: "document",
+    href: "/portal/orders",
+    relatedResourceType: "missing_document",
+    relatedResourceId: data?.id,
+  });
 
   return NextResponse.json({
     success: true,

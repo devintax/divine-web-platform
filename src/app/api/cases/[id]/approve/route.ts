@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
 
   try { await signalWorkflow(`${bundle.enrollment.service_type}-${id}`, "clientApprovedSignal", { deliverableId }); } catch {}
   if (bundle.assignedStaff?.email) {
-    await DFGEmail.newMessage(bundle.assignedStaff.email, bundle.assignedStaff.legal_name, bundle.enrollment.service_type);
+    await DFGEmail.newMessage(bundle.assignedStaff.email, bundle.assignedStaff.legal_name, bundle.enrollment.service_type, bundle.assignedStaff.id);
   }
   return NextResponse.json({ success: true });
 }

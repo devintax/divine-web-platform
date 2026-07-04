@@ -7,6 +7,12 @@ import IntakeSummary from "@/components/admin/IntakeSummary";
 
 type Tab = "documents" | "messages" | "checklist" | "deliverables" | "notes";
 
+type DocusealTemplate = {
+  id: string | number;
+  name?: string;
+  title?: string;
+};
+
 export default function ServiceDesk({ service }: { service: ServiceType }) {
   const meta = SERVICE_WORKFLOW[service];
   const [cases, setCases] = useState<any[]>([]);
@@ -230,6 +236,8 @@ function DocumentsTab({ selected, reload }: { selected: any; reload: () => void 
 function ServiceActionPanel({ selected, reload }: { selected: any; reload: () => void }) {
   const service = selected.enrollment.service_type;
   const [value, setValue] = useState("");
+  const [bookTxn, setBookTxn] = useState({ date: new Date().toISOString().slice(0, 10), description: "", amount: "", category: "", status: "Posted" });
+  const [bookSaving, setBookSaving] = useState(false);
   async function saveMessage(message: string) {
     await fetch(`/api/cases/${selected.enrollment.id}`, {
       method: "PATCH",
@@ -238,6 +246,21 @@ function ServiceActionPanel({ selected, reload }: { selected: any; reload: () =>
       body: JSON.stringify({ client_message: message, status: "active", progress: Math.max(selected.enrollment.progress || 10, 25) }),
     });
     setValue("");
+    reload();
+  }
+  async function addBookkeepingTransaction() {
+    if (!bookTxn.description.trim() || !bookTxn.amount.trim()) return;
+    setBookSaving(true);
+    const res = await fetch("/api/admin/bookkeeping", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ enrollmentId: selected.enrollment.id, transaction: bookTxn }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) window.alert(data.error || "Could not add transaction");
+    else setBookTxn({ date: new Date().toISOString().slice(0, 10), description: "", amount: "", category: "", status: "Posted" });
+    setBookSaving(false);
     reload();
   }
 
@@ -267,6 +290,22 @@ function ServiceActionPanel({ selected, reload }: { selected: any; reload: () =>
         <h3 className="text-sm font-black text-amber-900">Insurance Actions</h3>
         <input value={value} onChange={(e) => setValue(e.target.value)} placeholder="Quote or carrier update" className="w-full border border-border rounded-xl px-3 py-2 text-sm" />
         <button onClick={() => saveMessage(value ? `Insurance update: ${value}` : "Insurance quotes are being reviewed.")} className="px-3 py-2 bg-amber-700 text-white text-xs font-bold rounded-xl">Save Quote Update</button>
+      </div>
+    );
+  }
+  if (service === "bookkeeping") {
+    return (
+      <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 space-y-3">
+        <h3 className="text-sm font-black text-purple-900">Bookkeeping Client View</h3>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+          <input value={bookTxn.date} onChange={(e) => setBookTxn((prev) => ({ ...prev, date: e.target.value }))} type="date" className="border border-border rounded-xl px-3 py-2 text-sm" />
+          <input value={bookTxn.amount} onChange={(e) => setBookTxn((prev) => ({ ...prev, amount: e.target.value }))} placeholder="Amount, e.g. -42.50" className="border border-border rounded-xl px-3 py-2 text-sm" />
+          <input value={bookTxn.description} onChange={(e) => setBookTxn((prev) => ({ ...prev, description: e.target.value }))} placeholder="Description" className="border border-border rounded-xl px-3 py-2 text-sm" />
+          <input value={bookTxn.category} onChange={(e) => setBookTxn((prev) => ({ ...prev, category: e.target.value }))} placeholder="Category" className="border border-border rounded-xl px-3 py-2 text-sm" />
+        </div>
+        <button disabled={bookSaving || !bookTxn.description.trim() || !bookTxn.amount.trim()} onClick={addBookkeepingTransaction} className="px-3 py-2 bg-purple-700 text-white text-xs font-bold rounded-xl disabled:opacity-60">
+          {bookSaving ? "Saving..." : "Add Client-Visible Transaction"}
+        </button>
       </div>
     );
   }
@@ -326,6 +365,7 @@ function DeliverablesTab({ selected, reload }: { selected: any; reload: () => vo
   }
   return (
     <div className="space-y-4">
+      <ESignRequestPanel selected={selected} reload={reload} />
       <div className="bg-soft rounded-xl p-4 space-y-2">
         <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Deliverable title" className="w-full border border-border rounded-xl px-3 py-2 text-sm" />
         <textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Description" className="w-full border border-border rounded-xl px-3 py-2 text-sm min-h-20" />
@@ -338,6 +378,64 @@ function DeliverablesTab({ selected, reload }: { selected: any; reload: () => vo
           <div className="text-xs text-muted">{d.requires_approval ? (d.client_approved ? "Approved by client" : "Awaiting client approval") : "Delivered"}</div>
         </div>
       ))}
+    </div>
+  );
+}
+
+function ESignRequestPanel({ selected, reload }: { selected: any; reload: () => void }) {
+  const serviceLabel = SERVICE_WORKFLOW[selected.enrollment.service_type as ServiceType]?.label || "Service";
+  const [title, setTitle] = useState(`${serviceLabel} signature request`);
+  const [signerEmail, setSignerEmail] = useState(selected.client?.email || "");
+  const [documentUrl, setDocumentUrl] = useState("");
+  const [templateId, setTemplateId] = useState("");
+  const [templates, setTemplates] = useState<DocusealTemplate[]>([]);
+  const [sending, setSending] = useState(false);
+  const [result, setResult] = useState("");
+
+  useEffect(() => {
+    fetch("/api/admin/docuseal/templates", { credentials: "include" })
+      .then((res) => res.json())
+      .then((data) => setTemplates(Array.isArray(data.templates) ? data.templates : []))
+      .catch(() => setTemplates([]));
+  }, []);
+
+  async function sendRequest() {
+    setSending(true);
+    setResult("");
+    const res = await fetch("/api/esign/requests", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ enrollmentId: selected.enrollment.id, title, signerEmail, documentUrl, templateId }),
+    });
+    const data = await res.json().catch(() => ({}));
+    setResult(res.ok ? "Signature request sent." : data.error || "Could not send signature request.");
+    setSending(false);
+    if (res.ok) {
+      setDocumentUrl("");
+      reload();
+    }
+  }
+
+  return (
+    <div className="rounded-xl border border-red-200 bg-red-50 p-4 space-y-2">
+      <h3 className="text-sm font-black text-red-900">DocuSeal Signature Request</h3>
+      <p className="text-xs text-muted">Send any completed PDF or saved DocuSeal template to the client for e-signature.</p>
+      <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Request title" className="w-full border border-border rounded-xl px-3 py-2 text-sm" />
+      <input value={signerEmail} onChange={(e) => setSignerEmail(e.target.value)} placeholder="Signer email" className="w-full border border-border rounded-xl px-3 py-2 text-sm" />
+      {templates.length > 0 && (
+        <select value={templateId} onChange={(e) => setTemplateId(e.target.value)} className="w-full border border-border rounded-xl px-3 py-2 text-sm bg-white">
+          <option value="">Use secure PDF URL instead of a template</option>
+          {templates.map((template) => (
+            <option key={template.id} value={template.id}>{template.name || template.title || `Template ${template.id}`}</option>
+          ))}
+        </select>
+      )}
+      <input value={documentUrl} onChange={(e) => setDocumentUrl(e.target.value)} placeholder="Secure PDF URL" className="w-full border border-border rounded-xl px-3 py-2 text-sm" />
+      <button disabled={sending || !signerEmail.trim() || (!documentUrl.trim() && !templateId)} onClick={sendRequest} className="px-3 py-2 bg-[#C8102E] text-white text-xs font-bold rounded-xl disabled:opacity-60">
+        {sending ? "Sending..." : "Send Signature Request"}
+      </button>
+      {result && <p className={`text-xs font-bold ${result.includes("sent") ? "text-green-700" : "text-red-700"}`}>{result}</p>}
     </div>
   );
 }

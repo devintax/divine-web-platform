@@ -1,104 +1,105 @@
-import { Pill, Card } from "@/components/ui";
+import { BadgeCheck, Building2, HeartHandshake, LockKeyhole, MapPin, ShieldCheck, Sparkles, Users } from "lucide-react";
+import { Pill } from "@/components/ui";
+
+const values = [
+  { title: "Integrity", desc: "Client information is handled with care, confidentiality, and clear professional boundaries.", icon: ShieldCheck },
+  { title: "Practical service", desc: "DFG focuses on useful next steps, organized records, and responsive follow-through.", icon: BadgeCheck },
+  { title: "Client-centered support", desc: "The work starts with the client's situation, not a one-size-fits-all checklist.", icon: HeartHandshake },
+  { title: "Accessible workflow", desc: "Local service is paired with a secure portal for uploads, messages, approvals, and delivery.", icon: LockKeyhole },
+];
 
 export default function AboutPage() {
-  const values = [
-    { icon: "🔒", title: "Integrity", desc: "We conduct business with honesty, ensuring that your financial matters are handled ethically and professionally." },
-    { icon: "★", title: "Excellence", desc: "We strive for precision in every financial service we provide, exceeding expectations at every level." },
-    { icon: "👤", title: "Client-Centric Approach", desc: "Your financial well-being is our priority. We listen to your needs and provide customized strategies." },
-    { icon: "🌐", title: "Accessibility & Convenience", desc: "Our firm is located in New Castle, DE, and we are always available to serve you." },
-  ];
-
   return (
     <>
-      {/* Hero */}
-      <section className="bg-gradient-to-br from-primary to-primary-dark text-white py-[72px] px-6">
-        <div className="max-w-[800px] mx-auto text-center">
-          <Pill tone="white">About Divine Financial Group</Pill>
-          <h1 className="text-3xl lg:text-[40px] font-black mt-5 leading-tight">
-            More Than a Financial Service Provider —<br />We Are Your Partners in Success
+      <section className="bg-primary px-4 py-16 text-white md:px-6 lg:py-20">
+        <div className="mx-auto max-w-[900px] text-center">
+          <Pill tone="white">About DFG</Pill>
+          <h1 className="mt-5 text-[clamp(32px,5vw,52px)] font-black leading-tight">
+            Local financial service with a modern client workflow.
           </h1>
-          <p className="text-[15px] leading-[1.8] opacity-90 mt-5 max-w-[620px] mx-auto">
-            Our mission is to empower individuals and businesses by offering reliable, transparent, and effective financial solutions tailored to their specific needs.
+          <p className="mx-auto mt-5 max-w-[690px] text-[15px] leading-8 text-white/85">
+            Divine Financial Group serves Delaware families, entrepreneurs, and small businesses with tax, formation, insurance, notary, and bookkeeping support.
           </p>
         </div>
       </section>
 
-      {/* Origin Story */}
-      <section className="py-[72px] px-6 bg-white">
-        <div className="max-w-[1200px] mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <section className="bg-white px-4 py-16 md:px-6 lg:py-20">
+        <div className="mx-auto grid max-w-[1200px] gap-10 lg:grid-cols-[1fr_.9fr] lg:items-center">
           <div>
-            <Pill tone="blue">Our Story</Pill>
-            <h2 className="text-3xl font-black mt-4 mb-5">Born from the Financial Crisis of 2000</h2>
-            <p className="text-sm text-muted leading-[1.8] mb-4">
-              To truly understand the mission and values of Divine Financial Group (DFG), we must revisit the year 2000 — an era marked by Y2K fears, the Dot Com bubble, financial turbulence, and a real estate collapse that left many uncertain about the future.
+            <Pill tone="blue">Our approach</Pill>
+            <h2 className="mt-4 text-[clamp(28px,4vw,42px)] font-black leading-tight text-ink">
+              Professional work stays human. The platform keeps it organized.
+            </h2>
+            <p className="mt-5 text-sm leading-8 text-muted">
+              DFG's Phase 2 direction is deliberately practical: better public presence, secure payments, password reset and 2FA, compliance reminders, scheduling, and client-facing workflow improvements. Automation can come later. The current priority is helping staff serve clients clearly and reliably.
             </p>
-            <p className="text-sm text-muted leading-[1.8] mb-4">
-              While large corporations and industries received government support, countless individuals and small businesses were left to navigate the chaos on their own. Out of this challenging economic climate, <strong className="text-ink">Allstates Accounting Services</strong> was born — the foundation of what would become Divine Financial Group.
-            </p>
-            <p className="text-sm text-muted leading-[1.8]">
-              From the very beginning, we have taken a personal, client-centered approach, combining empathy with proven financial strategies to address real-world challenges. At DFG, we don&apos;t believe in &quot;one-size-fits-all&quot; solutions.
-            </p>
-          </div>
-          <div className="flex flex-col gap-4">
-            <div className="bg-gradient-to-br from-primary to-primary-dark rounded-[20px] p-8 text-white">
-              <div className="text-5xl font-black leading-none">25+</div>
-              <div className="text-sm opacity-80 mt-1.5">Years serving Delaware families and businesses</div>
-            </div>
-            <div className="grid grid-cols-2 gap-3.5">
-              {[["2,400+", "Clients Served"], ["5", "Services Offered"], ["100%", "Compliance Focus"], ["24/7", "Secure Portal"]].map(([n, l]) => (
-                <Card key={l} className="text-center !p-5">
-                  <div className="text-2xl font-black text-primary">{n}</div>
-                  <div className="text-[11px] text-muted mt-1 font-semibold">{l}</div>
-                </Card>
+            <div className="mt-7 grid gap-3 sm:grid-cols-3">
+              {[
+                ["25+", "Years of service"],
+                ["5", "Core services"],
+                ["1", "Secure portal"],
+              ].map(([value, label]) => (
+                <div key={label} className="rounded-xl border border-border bg-soft p-5">
+                  <div className="text-3xl font-black text-primary">{value}</div>
+                  <div className="mt-1 text-xs font-bold text-muted">{label}</div>
+                </div>
               ))}
             </div>
           </div>
-        </div>
-      </section>
-
-      {/* Core Values */}
-      <section className="py-[72px] px-6 bg-soft">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="text-center mb-12">
-            <Pill tone="red">Our Core Values</Pill>
-            <h2 className="text-3xl font-black mt-3.5">What We Stand For</h2>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5 stagger-children">
-            {values.map((v) => (
-              <Card key={v.title} className="border-t-[3px] border-t-accent">
-                <div className="w-11 h-11 bg-red-50 rounded-xl flex items-center justify-center text-[22px] mb-3.5">
-                  {v.icon}
-                </div>
-                <div className="font-extrabold text-[15px] text-accent mb-2">{v.title}</div>
-                <div className="text-[13px] text-muted leading-7">{v.desc}</div>
-              </Card>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Why Partner */}
-      <section className="py-[72px] px-6 bg-white">
-        <div className="max-w-[1200px] mx-auto">
-          <div className="text-center mb-12">
-            <Pill tone="blue">Why Partner With Us</Pill>
-            <h2 className="text-3xl font-black mt-3.5">Comprehensive Expertise. Personalized Service.</h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-            {[
-              { title: "Comprehensive Financial Expertise", desc: "We provide an all-in-one financial service experience, covering tax planning, business consulting, insurance, and bookkeeping under one roof." },
-              { title: "Personalized Financial Services", desc: "We tailor financial strategies to maximize efficiency, profitability, and growth for each individual client — never a cookie-cutter approach." },
-              { title: "Trusted Financial Advisors", desc: "We believe in educating our clients, ensuring that they make well-informed financial decisions with confidence and clarity." },
-            ].map((p) => (
-              <div key={p.title} className="flex gap-4 items-start">
-                <div className="w-9 h-9 bg-blue-50 rounded-[10px] shrink-0 flex items-center justify-center text-primary text-lg">✔</div>
-                <div>
-                  <div className="font-extrabold text-sm mb-1.5">{p.title}</div>
-                  <div className="text-[13px] text-muted leading-7">{p.desc}</div>
-                </div>
+          <div className="rounded-xl border border-border bg-soft p-6">
+            <div className="rounded-xl bg-white p-5">
+              <MapPin className="text-accent" size={24} />
+              <div className="mt-3 text-xl font-black text-ink">New Castle, Delaware</div>
+              <p className="mt-2 text-sm leading-7 text-muted">
+                Serving clients from 622 E. Basin Road with a growing online platform for intake, document exchange, payments, approvals, and final delivery.
+              </p>
+            </div>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <div className="rounded-xl bg-white p-5">
+                <Users className="text-primary" size={22} />
+                <div className="mt-3 font-black text-ink">Client first</div>
+                <p className="mt-2 text-[13px] leading-7 text-muted">Clear communication and status visibility.</p>
               </div>
-            ))}
+              <div className="rounded-xl bg-white p-5">
+                <Building2 className="text-primary" size={22} />
+                <div className="mt-3 font-black text-ink">Business ready</div>
+                <p className="mt-2 text-[13px] leading-7 text-muted">Support for individuals and companies.</p>
+              </div>
+            </div>
           </div>
+        </div>
+      </section>
+
+      <section className="bg-soft px-4 py-16 md:px-6 lg:py-20">
+        <div className="mx-auto max-w-[1200px]">
+          <div className="text-center">
+            <Pill tone="red">Values</Pill>
+            <h2 className="mt-3 text-[clamp(28px,4vw,40px)] font-black text-ink">What guides the work</h2>
+          </div>
+          <div className="mt-9 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            {values.map((value) => {
+              const Icon = value.icon;
+              return (
+                <div key={value.title} className="rounded-xl border border-border bg-white p-5">
+                  <Icon className="text-primary" size={24} />
+                  <div className="mt-4 font-black text-ink">{value.title}</div>
+                  <p className="mt-2 text-[13px] leading-7 text-muted">{value.desc}</p>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      <section className="bg-white px-4 py-16 md:px-6 lg:py-20">
+        <div className="mx-auto max-w-[950px] text-center">
+          <Sparkles className="mx-auto text-accent" size={28} />
+          <h2 className="mt-4 text-[clamp(28px,4vw,40px)] font-black text-ink">
+            Phase 2 is about making the manual workflow excellent.
+          </h2>
+          <p className="mx-auto mt-4 max-w-[720px] text-sm leading-8 text-muted">
+            The platform is being shaped around staff queues, client approvals, secure uploads, compliance reminders, appointment scheduling, and practical service delivery.
+          </p>
         </div>
       </section>
     </>

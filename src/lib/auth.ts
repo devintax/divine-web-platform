@@ -1,9 +1,11 @@
 import { cookies } from "next/headers";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { SESSION_COOKIE_NAME, verifySessionToken } from "@/lib/session-token";
 
 export async function getAuthUser() {
   const store = await cookies();
-  return { id: store.get("d_user_id")?.value || null };
+  const payload = verifySessionToken(store.get(SESSION_COOKIE_NAME)?.value || null);
+  return { id: payload?.authId || null };
 }
 
 export async function verifyStaff() {

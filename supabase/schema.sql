@@ -20,6 +20,11 @@ CREATE TABLE user_profiles (
   notification_preferences JSONB DEFAULT '{}',
   role VARCHAR(50) DEFAULT 'client' CHECK (role IN ('client','support','tax_intern','broker','specialist','notary','accountant','manager','super_admin')),
   health_score INTEGER DEFAULT 50,
+  is_active BOOLEAN DEFAULT TRUE,
+  email_verified BOOLEAN DEFAULT TRUE,
+  email_verified_at TIMESTAMP WITH TIME ZONE,
+  email_verify_token VARCHAR(255),
+  email_verify_expiry TIMESTAMP WITH TIME ZONE,
   created_at TIMESTAMP DEFAULT NOW(),
   updated_at TIMESTAMP DEFAULT NOW()
 );
@@ -42,6 +47,9 @@ CREATE TABLE service_enrollments (
   internal_notes TEXT,
   client_message TEXT,
   sla_deadline TIMESTAMP WITH TIME ZONE,
+  client_approved BOOLEAN DEFAULT FALSE,
+  review_requested_at TIMESTAMP WITH TIME ZONE,
+  payment_status VARCHAR(20) DEFAULT 'unpaid',
   completed_at TIMESTAMP WITH TIME ZONE,
   completed_by UUID REFERENCES user_profiles(id),
   client_approved_at TIMESTAMP WITH TIME ZONE,
@@ -109,6 +117,9 @@ CREATE TABLE case_deliverables (
   requires_approval BOOLEAN DEFAULT FALSE,
   client_approved BOOLEAN DEFAULT FALSE,
   approved_at TIMESTAMP WITH TIME ZONE,
+  sent_for_review_at TIMESTAMP WITH TIME ZONE,
+  client_approved_at TIMESTAMP WITH TIME ZONE,
+  review_notes TEXT,
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
@@ -172,6 +183,7 @@ CREATE TABLE audit_logs (
   resource_id UUID,
   ip_address INET,
   user_agent TEXT,
+  event_category VARCHAR(50) DEFAULT 'system',
   metadata JSONB,
   created_at TIMESTAMP DEFAULT NOW()
 );
@@ -184,6 +196,8 @@ CREATE TABLE formations (
   entity_type VARCHAR(50) CHECK (entity_type IN ('llc','s-corp','c-corp','nonprofit','sole-prop')),
   state_of_formation VARCHAR(2),
   use_divine_agent BOOLEAN DEFAULT FALSE,
+  sos_confirmation_number VARCHAR(100),
+  annual_report_due TIMESTAMP WITH TIME ZONE,
   filing_status VARCHAR(50) CHECK (filing_status IN ('draft','submitted','processing','approved','rejected')),
   created_at TIMESTAMP DEFAULT NOW()
 );
@@ -243,6 +257,20 @@ CREATE TABLE IF NOT EXISTS sms_messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS user_settings (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID UNIQUE REFERENCES user_profiles(id) ON DELETE CASCADE,
+  email_on_message BOOLEAN DEFAULT TRUE,
+  email_on_update BOOLEAN DEFAULT TRUE,
+  email_on_complete BOOLEAN DEFAULT TRUE,
+  sms_on_message BOOLEAN DEFAULT TRUE,
+  sms_on_update BOOLEAN DEFAULT FALSE,
+  timezone VARCHAR(50) DEFAULT 'America/New_York',
+  two_factor_enabled BOOLEAN DEFAULT FALSE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE TABLE IF NOT EXISTS call_logs (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   caller_name VARCHAR(255),
@@ -275,6 +303,40 @@ CREATE TABLE IF NOT EXISTS notification_reads (
   UNIQUE(staff_id, notification_id)
 );
 
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  title VARCHAR(255) NOT NULL,
+  body TEXT,
+  type VARCHAR(50) DEFAULT 'info',
+  href VARCHAR(500),
+  related_resource_type VARCHAR(100),
+  related_resource_id UUID,
+  read_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS chat_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  role VARCHAR(20) NOT NULL CHECK (role IN ('user','bot','assistant','system')),
+  content TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS callback_queue (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
+  preferred_method VARCHAR(50) DEFAULT 'call',
+  service_context VARCHAR(255),
+  status VARCHAR(50) DEFAULT 'pending' CHECK (status IN ('pending','contacted','resolved','cancelled')),
+  ai_gathered_data JSONB DEFAULT '{}'::jsonb,
+  assigned_to UUID REFERENCES user_profiles(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 -- Row Level Security Policies
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_enrollments ENABLE ROW LEVEL SECURITY;
@@ -290,9 +352,13 @@ ALTER TABLE insurance_quotes ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notary_sessions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contact_submissions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE sms_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE user_settings ENABLE ROW LEVEL SECURITY;
 ALTER TABLE call_logs ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_reads ENABLE ROW LEVEL SECURITY;
+ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
+ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE callback_queue ENABLE ROW LEVEL SECURITY;
 
 -- Audit logs are append-only. Application roles may insert/select through
 -- controlled APIs, but no runtime role should be able to delete audit events.
@@ -300,6 +366,7 @@ REVOKE DELETE ON audit_logs FROM anon, authenticated, project_admin;
 
 -- Basic RLS: clients see their own data
 CREATE POLICY "Users can view own profile" ON user_profiles FOR SELECT USING (auth.uid() = id);
+CREATE POLICY "Users can insert own profile" ON user_profiles FOR INSERT WITH CHECK (auth.uid() = id);
 CREATE POLICY "Users can update own profile" ON user_profiles FOR UPDATE USING (auth.uid() = id);
 CREATE POLICY "Users can view own enrollments" ON service_enrollments FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own enrollments" ON service_enrollments FOR INSERT WITH CHECK (auth.uid() = user_id);
@@ -312,6 +379,29 @@ CREATE POLICY "Users can view own formations" ON formations FOR SELECT USING (au
 CREATE POLICY "Users can view own quotes" ON insurance_quotes FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can view own notary sessions" ON notary_sessions FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Anyone can submit contact form" ON contact_submissions FOR INSERT WITH CHECK (true);
+CREATE POLICY "Users can view own settings" ON user_settings FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own settings" ON user_settings FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own notifications" ON notifications FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can update own notifications" ON notifications FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own chat messages" ON chat_messages FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own chat messages" ON chat_messages FOR INSERT WITH CHECK (auth.uid() = user_id);
+
+-- Server/API key access for trusted platform routes and workers.
+DO $$
+DECLARE
+  t text;
+BEGIN
+  FOREACH t IN ARRAY ARRAY[
+    'user_profiles','service_enrollments','vault_documents','case_messages',
+    'case_deliverables','case_checklist_items','missing_documents','upload_links',
+    'audit_logs','formations','insurance_quotes','notary_sessions',
+    'contact_submissions','sms_messages','user_settings','call_logs',
+    'knowledge_base','notification_reads','notifications','chat_messages','callback_queue'
+  ] LOOP
+    EXECUTE format('DROP POLICY IF EXISTS "Project admin full access" ON %I', t);
+    EXECUTE format('CREATE POLICY "Project admin full access" ON %I FOR ALL TO project_admin USING (true) WITH CHECK (true)', t);
+  END LOOP;
+END $$;
 
 CREATE INDEX idx_enrollments_assigned ON service_enrollments(assigned_staff_id);
 CREATE INDEX idx_enrollments_pod ON service_enrollments(pod);
@@ -324,7 +414,15 @@ CREATE INDEX idx_upload_links_enrollment ON upload_links(enrollment_id);
 CREATE INDEX idx_sms_messages_provider_msgid ON sms_messages(provider, provider_message_id);
 CREATE INDEX idx_sms_messages_related ON sms_messages(related_resource_type, related_resource_id);
 CREATE INDEX idx_sms_messages_recipient ON sms_messages(recipient_phone, created_at DESC);
+CREATE INDEX idx_user_settings_user ON user_settings(user_id);
+CREATE UNIQUE INDEX idx_user_profiles_auth_user_id ON user_profiles(auth_user_id);
+CREATE INDEX idx_user_profiles_verify_token ON user_profiles(email_verify_token) WHERE email_verify_token IS NOT NULL;
 CREATE INDEX idx_call_logs_created ON call_logs(created_at DESC);
 CREATE INDEX idx_call_logs_phone ON call_logs(caller_phone);
 CREATE INDEX idx_knowledge_base_category ON knowledge_base(category, is_active);
 CREATE INDEX idx_notification_reads_staff ON notification_reads(staff_id, notification_id);
+CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at DESC);
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id, read_at) WHERE read_at IS NULL;
+CREATE INDEX idx_chat_messages_user ON chat_messages(user_id, created_at);
+CREATE INDEX idx_callback_queue_status ON callback_queue(status, created_at);
+CREATE INDEX idx_callback_queue_user ON callback_queue(user_id);

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { verifyStaff } from "@/lib/auth-server";
 import { checkAllProviders } from "@/lib/sms";
+import { checkDocusealHealth } from "@/lib/docuseal";
+import { checkStirlingHealth } from "@/lib/stirling";
 
 export const runtime = "nodejs";
 
@@ -27,6 +29,10 @@ export async function GET() {
         carrier: "T-Mobile",
         fcmStatus: textBeeConfigured ? "checked-by-provider" : "device-id-missing",
       },
+    },
+    services: {
+      docuseal: await checkDocusealHealth(),
+      stirling: await checkStirlingHealth(),
     },
   });
 }

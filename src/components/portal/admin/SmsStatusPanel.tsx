@@ -7,6 +7,7 @@ type StatusResponse = {
   fallbackProvider?: string | null;
   providers?: Record<string, { configured: boolean; online: boolean; detail?: string }>;
   devices?: Record<string, { deviceId: string; deviceName: string; devicePhone?: string; carrier: string; fcmStatus?: string }>;
+  services?: Record<string, { configured: boolean; online: boolean; detail?: string }>;
 };
 
 export default function SmsStatusPanel() {
@@ -118,6 +119,27 @@ export default function SmsStatusPanel() {
       </div>
 
       <button onClick={loadStatus} className="px-3 py-2 rounded-xl border border-border bg-white text-xs font-bold text-[#0B4DA2]">Refresh Status</button>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {(["docuseal", "stirling"] as const).map((name) => {
+          const service = status?.services?.[name];
+          return (
+            <div key={name} className="rounded-2xl bg-white border border-border p-5">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-sm font-black text-ink">{name === "docuseal" ? "DocuSeal" : "Stirling-PDF"}</div>
+                <Badge label={service?.online ? "Online" : "Check"} color={service?.online ? "#16A34A" : "#D97706"} />
+              </div>
+              {loading ? (
+                <p className="text-xs text-muted mt-3">Checking...</p>
+              ) : !service?.configured ? (
+                <p className="text-xs text-muted mt-3">Not configured</p>
+              ) : (
+                <p className={`text-xs font-bold mt-3 ${service.online ? "text-green-700" : "text-red-700"}`}>{service.detail || (service.online ? "Reachable" : "Offline")}</p>
+              )}
+            </div>
+          );
+        })}
+      </div>
 
       <div className="rounded-2xl bg-white border border-border p-5 space-y-3">
         <h2 className="text-sm font-black text-ink">Send Test SMS</h2>

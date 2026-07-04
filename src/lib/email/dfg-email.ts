@@ -1,8 +1,14 @@
 import "server-only";
+import { allowsNotificationPreference, type NotificationPreferenceKey } from "@/lib/notification-preferences";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
-type EmailResult = { sent: boolean; error?: string };
+type EmailResult = { sent: boolean; error?: string; skipped?: boolean };
+type EmailOptions = {
+  preference?: NotificationPreferenceKey;
+  userId?: string | null;
+  bypassPreferences?: boolean;
+};
 
 function canSendEmail() {
   return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
@@ -12,8 +18,15 @@ function escapeHtml(value: string) {
   return value.replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" })[char] || char);
 }
 
-async function sendEmail(to: string | null | undefined, subject: string, html: string): Promise<EmailResult> {
+async function sendEmail(to: string | null | undefined, subject: string, html: string, options: EmailOptions = {}): Promise<EmailResult> {
   if (!to || !canSendEmail()) return { sent: false, error: "Email provider is not configured" };
+  const allowed = await allowsNotificationPreference({
+    email: to,
+    userId: options.userId,
+    key: options.preference,
+    bypass: options.bypassPreferences,
+  });
+  if (!allowed) return { sent: false, skipped: true, error: "Email disabled by notification preferences" };
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",
@@ -59,7 +72,7 @@ function button(label: string, href: string, color = "#0B4DA2") {
 }
 
 export const DFGEmail = {
-  intakeConfirmation(to: string | null | undefined, name: string | null | undefined, service: string, referenceId: string) {
+  intakeConfirmation(to: string | null | undefined, name: string | null | undefined, service: string, referenceId: string, userId?: string | null) {
     return sendEmail(
       to,
       `We received your ${service} request`,
@@ -69,10 +82,38 @@ export const DFGEmail = {
         <p><strong>Reference:</strong> ${escapeHtml(referenceId)}</p>
         ${button("View your order", `${APP_URL}/portal/orders`)}
       `),
+      { preference: "email_on_update", userId },
     );
   },
 
-  documentRequested(to: string | null | undefined, name: string | null | undefined, documentName: string, uploadUrl: string, expiresAt: string) {
+  welcome(to: string | null | undefined, name: string | null | undefined) {
+    return sendEmail(
+      to,
+      "Welcome to Divine Financial Group",
+      shell("Welcome to your secure client portal", `
+        <p>Hi ${escapeHtml(name || "there")},</p>
+        <p>Your Divine Financial Group portal account has been created. Once your email is verified, you can submit service requests, upload documents, message your specialist, and review completed work from your secure dashboard.</p>
+        ${button("Open the portal", `${APP_URL}/login`)}
+      `),
+      { bypassPreferences: true },
+    );
+  },
+
+  emailVerification(to: string | null | undefined, name: string | null | undefined, verifyUrl: string) {
+    return sendEmail(
+      to,
+      "Verify your Divine Financial Group account",
+      shell("Verify your email address", `
+        <p>Hi ${escapeHtml(name || "there")},</p>
+        <p>Please verify your email address to activate your Divine Financial Group client portal account.</p>
+        ${button("Verify my email", verifyUrl)}
+        <p style="font-size:13px;color:#64748b;">This secure link expires in 24 hours. If you did not create this account, you can ignore this message.</p>
+      `),
+      { bypassPreferences: true },
+    );
+  },
+
+  documentRequested(to: string | null | undefined, name: string | null | undefined, documentName: string, uploadUrl: string, expiresAt: string, userId?: string | null) {
     return sendEmail(
       to,
       `Document needed: ${documentName}`,
@@ -82,10 +123,11 @@ export const DFGEmail = {
         ${button(`Upload ${documentName}`, uploadUrl)}
         <p style="font-size:13px;color:#64748b;">This secure link expires ${escapeHtml(new Date(expiresAt).toLocaleString())}.</p>
       `),
+      { preference: "email_on_update", userId },
     );
   },
 
-  newMessage(to: string | null | undefined, name: string | null | undefined, service: string) {
+  newMessage(to: string | null | undefined, name: string | null | undefined, service: string, userId?: string | null) {
     return sendEmail(
       to,
       `New message about your ${service} case`,
@@ -94,10 +136,11 @@ export const DFGEmail = {
         <p>Your ${escapeHtml(service)} specialist sent you a message.</p>
         ${button("Read and reply", `${APP_URL}/portal/orders`)}
       `),
+      { preference: "email_on_message", userId },
     );
   },
 
-  readyForReview(to: string | null | undefined, name: string | null | undefined, service: string, title: string) {
+  readyForReview(to: string | null | undefined, name: string | null | undefined, service: string, title: string, userId?: string | null) {
     return sendEmail(
       to,
       `${title} is ready for review`,
@@ -106,10 +149,11 @@ export const DFGEmail = {
         <p><strong>${escapeHtml(title)}</strong> is ready for your review and approval.</p>
         ${button("Review now", `${APP_URL}/portal/orders`, "#16A34A")}
       `),
+      { preference: "email_on_update", userId },
     );
   },
 
-  caseCompleted(to: string | null | undefined, name: string | null | undefined, service: string) {
+  caseCompleted(to: string | null | undefined, name: string | null | undefined, service: string, userId?: string | null) {
     return sendEmail(
       to,
       `Your ${service} case is complete`,
@@ -118,6 +162,21 @@ export const DFGEmail = {
         <p>Your <strong>${escapeHtml(service)}</strong> case is complete. Final documents are available in your secure vault.</p>
         ${button("Open secure vault", `${APP_URL}/portal/vault`)}
       `),
+      { preference: "email_on_complete", userId },
+    );
+  },
+
+  twoFactorCode(to: string | null | undefined, name: string | null | undefined, code: string) {
+    return sendEmail(
+      to,
+      "Your Divine Financial Group sign-in code",
+      shell("Secure sign-in verification", `
+        <p>Hi ${escapeHtml(name || "there")},</p>
+        <p>Use this code to finish signing in to your secure DFG portal:</p>
+        <p style="font-size:30px;letter-spacing:8px;font-weight:800;color:#0B4DA2;margin:20px 0;">${escapeHtml(code)}</p>
+        <p style="font-size:13px;color:#64748b;">This code expires in 10 minutes. If you did not try to sign in, please call Divine Financial Group.</p>
+      `),
+      { bypassPreferences: true },
     );
   },
 };

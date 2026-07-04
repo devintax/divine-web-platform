@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     const sms = await sendSms(
       (client as any).phone,
       `Hi ${(client as any).legal_name || "there"}! Divine Financial Group sent you a secure upload link for ${purpose}. Upload here: ${url}. Link expires in ${hours} hours. Questions? Call (302) 322-5515.`,
-      { relatedResourceType: "upload_link", relatedResourceId: data.id, sentBy: session.profileId },
+      { relatedResourceType: "upload_link", relatedResourceId: data.id, sentBy: session.profileId, preference: "sms_on_update", preferenceUserId: targetUserId },
     );
     smsSent = sms.success;
     if (smsSent) await admin.from("upload_links").update({ sms_sent_at: new Date().toISOString() }).eq("id", data.id);

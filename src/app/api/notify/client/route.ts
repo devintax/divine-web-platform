@@ -29,6 +29,8 @@ export async function POST(req: NextRequest) {
       relatedResourceType: "user_profile",
       relatedResourceId: userId,
       sentBy: session.profileId,
+      preference: "sms_on_update",
+      preferenceUserId: userId,
     });
     await logAudit({ action: "client_sms_sent", staffId: session.profileId, userId, resourceType: "user_profile", resourceId: userId, eventCategory: "system", metadata: { subject, provider: result.provider, success: result.success } });
     if (!result.success) return NextResponse.json({ error: result.error || "SMS send failed" }, { status: 502 });

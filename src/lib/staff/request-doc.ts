@@ -1,5 +1,6 @@
 import { randomUUID } from "crypto";
 import { DFGEmail } from "@/lib/email/dfg-email";
+import { createNotification } from "@/lib/notifications";
 import { sendSms } from "@/lib/sms";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
@@ -84,12 +85,21 @@ export async function requestMissingDocument(input: {
     .eq("id", input.clientUserId)
     .single();
   const uploadUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/upload/${link.token}`;
-  await DFGEmail.documentRequested((client as any)?.email || input.recipientEmail, (client as any)?.legal_name, input.documentName, uploadUrl, link.expires_at);
+  await DFGEmail.documentRequested((client as any)?.email || input.recipientEmail, (client as any)?.legal_name, input.documentName, uploadUrl, link.expires_at, input.clientUserId);
+  await createNotification({
+    userId: input.clientUserId,
+    title: "Document needed",
+    body: `${input.documentName} is needed for your case.`,
+    type: "document",
+    href: "/portal/orders",
+    relatedResourceType: "missing_document",
+    relatedResourceId: data?.id,
+  });
   if ((client as any)?.phone) {
     const sms = await sendSms(
       (client as any).phone,
       `Hi ${(client as any).legal_name || "there"}! Divine Financial Group needs ${input.documentName}. Upload securely: ${uploadUrl}. Link expires in 48 hours.`,
-      { relatedResourceType: "upload_link", relatedResourceId: link.id, sentBy: input.requestedBy },
+      { relatedResourceType: "upload_link", relatedResourceId: link.id, sentBy: input.requestedBy, preference: "sms_on_update", preferenceUserId: input.clientUserId },
     );
     if (sms.success) await admin.from("upload_links").update({ sms_sent_at: new Date().toISOString() }).eq("id", link.id);
   }

@@ -1,7 +1,7 @@
 import { createClient } from "@insforge/sdk";
 
-const INSFORGE_URL = process.env.NEXT_PUBLIC_INSFORGE_URL!;
-const ANON_KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!;
+const INSFORGE_URL = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
+const ANON_KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || process.env.INSFORGE_ANON_KEY || "";
 
 // Browser client — for client-side React components
 export const insforge = createClient({

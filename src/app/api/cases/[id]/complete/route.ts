@@ -4,6 +4,8 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { canAccessServiceDesk, isServiceType } from "@/lib/service-workflow";
 import { DFGEmail } from "@/lib/email/dfg-email";
 import { signalWorkflow } from "@/lib/temporal";
+import { createNotification } from "@/lib/notifications";
+import { sendSms } from "@/lib/sms";
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await verifyStaff();
@@ -47,8 +49,24 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     read_by_staff: true,
   });
   await safeSignal(`${enrollment.service_type}-${id}`, "staffCompletedSignal", update);
-  const { data: client } = await admin.from("user_profiles").select("legal_name,email").eq("id", enrollment.user_id).single();
-  await DFGEmail.caseCompleted((client as any)?.email, (client as any)?.legal_name, enrollment.service_type);
+  const { data: client } = await admin.from("user_profiles").select("id,legal_name,email,phone").eq("id", enrollment.user_id).single();
+  await DFGEmail.caseCompleted((client as any)?.email, (client as any)?.legal_name, enrollment.service_type, enrollment.user_id);
+  await createNotification({
+    userId: enrollment.user_id,
+    title: "Case complete",
+    body: `Your ${enrollment.service_type} case is complete. Final documents are available in your vault.`,
+    type: "complete",
+    href: "/portal/orders",
+    relatedResourceType: "case",
+    relatedResourceId: id,
+  });
+  if ((client as any)?.phone) {
+    await sendSms(
+      (client as any).phone,
+      `Divine Financial Group: your ${enrollment.service_type} case is complete. Final documents are available in your secure portal.`,
+      { relatedResourceType: "case_complete", relatedResourceId: id, sentBy: session.profileId, preference: "sms_on_update", preferenceUserId: enrollment.user_id },
+    );
+  }
   return NextResponse.json({ success: true });
 }
 

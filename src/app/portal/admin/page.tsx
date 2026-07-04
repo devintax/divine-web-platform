@@ -10,9 +10,12 @@ const SERVICE_DESKS = [
   { label: "Notary Console", href: "/portal/admin/notary", color: "#C8102E", body: "Document review, KYC, session completion" },
   { label: "Bookkeeping Pod", href: "/portal/admin/books", color: "#7C3AED", body: "Monthly books, reconciliation, reports" },
   { label: "SMS Gateway", href: "/portal/admin/sms-status", color: "#0F766E", body: "Vendel/TextBee health, manual test sends, delivery tracking" },
+  { label: "PDF Tools", href: "/portal/admin/pdf-tools", color: "#C8102E", body: "Merge and compress PDFs with Stirling-PDF" },
   { label: "Voice Receptionist", href: "/portal/admin/voice", color: "#7C2D12", body: "Manual voice intake and call capture" },
   { label: "Call Logs", href: "/portal/admin/call-logs", color: "#374151", body: "Inbound calls, summaries, and follow-up history" },
   { label: "Knowledge Base", href: "/portal/admin/knowledge-base", color: "#9333EA", body: "Staff answers for concierge and support" },
+  { label: "Compliance Calendar", href: "/portal/admin/compliance", color: "#0B4DA2", body: "Formation annual report reminders and staff follow-up" },
+  { label: "Registered Agent", href: "/portal/admin/registered-agent", color: "#155E75", body: "SOP delivery tracking and agent service follow-up" },
 ];
 
 export default function AdminPage() {

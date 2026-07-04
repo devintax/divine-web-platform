@@ -23,6 +23,7 @@ const SETTINGS_FIELDS = new Set([
   "sms_on_message",
   "sms_on_update",
   "timezone",
+  "two_factor_enabled",
 ]);
 
 export async function GET() {

@@ -8,6 +8,36 @@ import CrossSellBanner from "@/components/ui/CrossSellBanner";
 import { useToast } from "@/components/ui/Toast";
 import { downloadIcs } from "@/lib/ics";
 
+type IntakeOption = {
+  value: string;
+  label: string;
+  description?: string;
+  badge?: string;
+  badgeColor?: "blue" | "gold" | "green";
+  icon?: string;
+};
+
+const FORMATION_ENTITY_OPTIONS: IntakeOption[] = [
+  { value: "LLC", label: "LLC", description: "Most popular for small businesses. Flexible and tax-efficient.", badge: "Recommended", badgeColor: "green" },
+  { value: "Single-Member LLC", label: "Single-Member LLC", description: "Simple liability protection for one owner." },
+  { value: "Multi-Member LLC", label: "Multi-Member LLC", description: "Flexible structure for two or more owners." },
+  { value: "S-Corporation", label: "S-Corporation", description: "Best for businesses planning to pay owners a salary." },
+  { value: "C-Corporation", label: "C-Corporation", description: "Ideal for startups seeking outside investment." },
+  { value: "Nonprofit", label: "Nonprofit", description: "Mission-driven organization with tax-exempt planning." },
+  { value: "Professional Corporation", label: "Professional Corporation", description: "For licensed professional services where applicable." },
+  { value: "Partnership", label: "Partnership", description: "Two or more owners operating together." },
+  { value: "DBA / Trade Name", label: "DBA / Trade Name", description: "Operate under a public business name." },
+];
+
+const INSURANCE_PRODUCT_OPTIONS: IntakeOption[] = [
+  { value: "auto", label: "Auto Insurance", description: "Personal vehicle coverage and policy support.", badge: "Most common", badgeColor: "blue" },
+  { value: "home", label: "Homeowners / Renters", description: "Home, condo, renters, or dwelling coverage." },
+  { value: "life", label: "Life Insurance", description: "Term, whole life, and family protection review." },
+  { value: "business", label: "Business Insurance", description: "General liability, BOP, and commercial coverage." },
+  { value: "commercial_auto", label: "Commercial Auto", description: "Business vehicles, delivery, and fleet needs." },
+  { value: "notary_bond", label: "Notary Bond / E&O", description: "Bond and errors-and-omissions support for notaries." },
+];
+
 const SERVICES = [
   { key: "formation", label: "Business Formation", color: "#0B4DA2", icon: "🏛" },
   { key: "tax", label: "Tax Preparation", color: "#16A34A", icon: "🧾" },
@@ -120,8 +150,6 @@ function FormationWizard({ flags }: { flags?: Record<string, boolean> }) {
 
   async function submit() {
     setSubmitting(true);
-    const uid = document.cookie.match(/d_user_id=([^;]+)/)?.[1];
-    if (!uid) { setSubmitting(false); return; }
     try {
       const p = await fetchUserProfile();
       const r = await fetch("/api/services/enroll", {
@@ -133,7 +161,7 @@ function FormationWizard({ flags }: { flags?: Record<string, boolean> }) {
       const eid = j.enrollmentId || j.enrollment?.id;
       await fetch("/api/workflows/formation", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, clientPhone: p.phone || "", businessName: data.businessName, entityType: data.entityType, state: data.state || "DE", useDivineAgent: data.agentChoice === "divine", intakeData: { ...data, state: data.state || "DE" } })
+        body: JSON.stringify({ enrollmentId: eid, userId: p.id, clientEmail: p.email, clientName: p.legal_name, clientPhone: p.phone || "", businessName: data.businessName, entityType: data.entityType, state: data.state || "DE", useDivineAgent: data.agentChoice === "divine", intakeData: { ...data, state: data.state || "DE" } })
       });
       localStorage.removeItem("dfg-intake-formation-progress");
       toast.success("Formation submitted! A specialist will contact you within 1 business day.");
@@ -173,12 +201,7 @@ function FormationWizard({ flags }: { flags?: Record<string, boolean> }) {
         )}
 
         {step === 1 && (
-          <OptionGrid options={[
-            { value: "LLC", label: "LLC", description: "Most popular for small businesses. Flexible and tax-efficient.", badge: "Recommended", badgeColor: "green" },
-            { value: "S-Corporation", label: "S-Corporation", description: "Best for businesses planning to pay owners a salary." },
-            { value: "C-Corporation", label: "C-Corporation", description: "Ideal for startups seeking outside investment." },
-            { value: "Nonprofit", label: "Nonprofit", description: "Mission-driven organizations. Tax-exempt." },
-          ]} selected={data.entityType || ""} onSelect={v => save({ ...data, entityType: v })} />
+          <OptionGrid options={FORMATION_ENTITY_OPTIONS} selected={data.entityType || ""} onSelect={v => save({ ...data, entityType: v })} />
         )}
 
         {step === 2 && (
@@ -266,8 +289,6 @@ function TaxWizard({ flags }: { flags: any }) {
 
   async function submit() {
     setSubmitting(true);
-    const uid = document.cookie.match(/d_user_id=([^;]+)/)?.[1];
-    if (!uid) { setSubmitting(false); return; }
     try {
       const p = await fetchUserProfile();
       const r = await fetch("/api/services/enroll", {
@@ -279,7 +300,7 @@ function TaxWizard({ flags }: { flags: any }) {
       const eid = j.enrollmentId || j.enrollment?.id;
       await fetch("/api/workflows/tax", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, filingStatus: data.filingStatus, incomeSources: data.incomeSources || [], deductions: data.deductions || [] })
+        body: JSON.stringify({ enrollmentId: eid, userId: p.id, clientEmail: p.email, clientName: p.legal_name, filingStatus: data.filingStatus, incomeSources: data.incomeSources || [], deductions: data.deductions || [] })
       });
       localStorage.removeItem("dfg-intake-tax-progress");
       toast.success("Tax intake submitted!");
@@ -396,11 +417,10 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
   const [submission, setSubmission] = useState<{ enrollmentId?: string; workflowId?: string } | null>(null);
   const [done, setDone] = useState(false);
   const [submitting, setSubmitting] = useState(false);
-  const [showQuotes, setShowQuotes] = useState(false);
   const [resumePrompt, setResumePrompt] = useState(false);
   const toast = useToast();
   const color = "#D97706";
-  const steps = [{ label: "Location" }, { label: "Vehicle" }, { label: "Driver & Usage" }, { label: "History & Submit" }];
+  const steps = [{ label: "Product & Location" }, { label: "Policy Details" }, { label: "Applicant & Usage" }, { label: "History & Submit" }];
 
   useEffect(() => {
     const s = localStorage.getItem("dfg-intake-insurance-progress");
@@ -422,9 +442,6 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
 
   async function submit() {
     setSubmitting(true);
-    setShowQuotes(true);
-    const uid = document.cookie.match(/d_user_id=([^;]+)/)?.[1];
-    if (!uid) { setSubmitting(false); return; }
     try {
       const p = await fetchUserProfile();
       const r = await fetch("/api/services/enroll", {
@@ -436,20 +453,18 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
       const eid = j.enrollmentId || j.enrollment?.id;
       const workflowRes = await fetch("/api/workflows/insurance", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, clientPhone: p.phone || "", zipCode: data.zipCode, vehicleUsage: data.vehicleUsage, driverHistory: data.driverHistory })
+        body: JSON.stringify({ enrollmentId: eid, userId: p.id, clientEmail: p.email, clientName: p.legal_name, clientPhone: p.phone || "", productType: data.productType, zipCode: data.zipCode, vehicleUsage: data.vehicleUsage, driverHistory: data.driverHistory, intakeData: data })
       });
       const workflowJson = await workflowRes.json().catch(() => ({}));
       if (!workflowRes.ok) throw new Error(workflowJson.error || "Could not start insurance workflow");
       setSubmission({ enrollmentId: eid, workflowId: workflowJson.workflowId || workflowJson.workflow?.workflowId });
       localStorage.removeItem("dfg-intake-insurance-progress");
-      // Wait 2s for "comparing carriers" effect, then show quotes
-      await new Promise(r => setTimeout(r, 2000));
-      toast.success("Insurance request submitted. Tracking is now available.");
+      toast.success("Insurance request submitted. A broker will review and follow up.");
+      setDone(true);
     } catch (e: any) { toast.error(e.message || "Submission failed"); }
     setSubmitting(false);
   }
 
-  if (showQuotes) return <InsuranceQuoteResults data={data} onDone={() => { setShowQuotes(false); setDone(true); }} />;
   if (done) return <InsuranceSuccessScreen data={data} enrollmentId={submission?.enrollmentId} workflowId={submission?.workflowId} crossSells={[
     { icon: "✍️", label: "Notarize Documents", href: "/portal/intake?service=notary" },
   ]} />;
@@ -460,12 +475,19 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
       <StepWizard steps={steps} currentStep={step} serviceColor={color} title={steps[step].label}
         onBack={() => setStep(s => Math.max(0, s - 1))}
         onContinue={() => { if (step < steps.length - 1) setStep(s => s + 1); else submit(); }}
-        canContinue={step === 0 ? data.zipCode?.length === 5 : step === 1 ? !!data.vehicleYear && !!data.vehicleMake : step === 2 ? !!data.vehicleUsage && !!data.dob : !!data.claimsHistory}
+        canContinue={
+          step === 0 ? !!data.productType && data.zipCode?.length === 5 :
+          step === 1 ? (data.productType === "auto" || data.productType === "commercial_auto" ? !!data.vehicleYear && !!data.vehicleMake : !!data.insuranceSubject) :
+          step === 2 ? !!data.dob && (data.productType === "auto" || data.productType === "commercial_auto" ? !!data.vehicleUsage : !!data.coveragePurpose) :
+          !!data.claimsHistory && !!data.coverageLevel
+        }
         isLastStep={step === steps.length - 1}>
 
         {step === 0 && (
           <div className="space-y-4 text-center py-4">
-            <div className="text-2xl font-black text-ink">Find the best auto insurance rate in your area</div>
+            <div className="text-2xl font-black text-ink">Tell us what coverage you need</div>
+            <p className="text-sm text-muted">A DFG broker will review your intake manually and follow up with next steps.</p>
+            <OptionGrid options={INSURANCE_PRODUCT_OPTIONS} selected={data.productType || ""} onSelect={v => save({ ...data, productType: v })} />
             <input
               value={data.zipCode || ""}
               onChange={e => handleZip(e.target.value)}
@@ -474,13 +496,26 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
               autoFocus
               className="w-full max-w-[200px] mx-auto block border-[2px] border-border rounded-xl px-6 py-5 text-3xl font-bold text-center tracking-widest focus:border-[#D97706] focus:outline-none"
             />
-            <div className="text-xs text-muted">We compare rates from 50+ carriers instantly</div>
-            <div className="text-[10px] text-muted opacity-60">Beta — rates estimated</div>
+            <div className="text-xs text-muted">ZIP helps route the request and confirm available coverage options.</div>
           </div>
         )}
 
         {step === 1 && (
           <div className="space-y-4">
+            {data.productType !== "auto" && data.productType !== "commercial_auto" && (
+              <>
+                <div>
+                  <label className="text-sm font-bold text-ink block mb-2">What should this policy protect?</label>
+                  <input value={data.insuranceSubject || ""} onChange={e => save({ ...data, insuranceSubject: e.target.value })} placeholder="Home, family, business, property, bond, etc." className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-base" />
+                </div>
+                <div>
+                  <label className="text-sm font-bold text-ink block mb-2">Current carrier or policy number (optional)</label>
+                  <input value={data.currentCarrier || ""} onChange={e => save({ ...data, currentCarrier: e.target.value })} placeholder="Carrier name or policy reference" className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-base" />
+                </div>
+              </>
+            )}
+            {(data.productType === "auto" || data.productType === "commercial_auto") && (
+              <>
             <div>
               <label className="text-sm font-bold text-ink block mb-2">Vehicle Year</label>
               <select value={data.vehicleYear || ""} onChange={e => save({ ...data, vehicleYear: e.target.value })} className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-base bg-white">
@@ -503,12 +538,26 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
               <label className="text-sm font-bold text-ink block mb-2">VIN (optional)</label>
               <input value={data.vin || ""} onChange={e => save({ ...data, vin: e.target.value.toUpperCase().slice(0, 17) })} placeholder="17 characters" className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-base font-mono uppercase" />
             </div>
+              </>
+            )}
           </div>
         )}
 
         {step === 2 && (
           <div className="space-y-4">
             <div>
+              {data.productType !== "auto" && data.productType !== "commercial_auto" ? (
+                <>
+                  <label className="text-sm font-bold text-ink block mb-2">Primary coverage goal</label>
+                  <OptionGrid options={[
+                    { value: "new_policy", label: "Start a new policy" },
+                    { value: "review_existing", label: "Review current coverage" },
+                    { value: "increase_protection", label: "Increase protection" },
+                    { value: "lower_cost", label: "Discuss cost options" },
+                  ]} selected={data.coveragePurpose || ""} onSelect={v => save({ ...data, coveragePurpose: v })} />
+                </>
+              ) : (
+                <>
               <label className="text-sm font-bold text-ink block mb-2">How do you primarily use this vehicle?</label>
               <OptionGrid options={[
                 { value: "personal", label: "Personal / Pleasure", description: "Commuting, errands, leisure" },
@@ -520,6 +569,8 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
                 <div className="bg-amber-50 border border-amber-200 text-xs text-amber-900 rounded-xl p-3 mt-2">
                   ⚠ Commercial vehicle use exposes your personal assets. An LLC can protect you. <a href="/portal/intake?service=formation" className="font-bold underline">Form an LLC →</a>
                 </div>
+              )}
+                </>
               )}
             </div>
             <div>
@@ -569,55 +620,6 @@ function InsuranceWizard({ flags }: { flags?: Record<string, boolean> }) {
   );
 }
 
-function InsuranceQuoteResults({ data, onDone }: { data: any; onDone: () => void }) {
-  // Simulated quotes — clearly labeled "Beta — rates estimated"
-  const baseRate = data.coverageLevel === "minimum" ? 75 : data.coverageLevel === "comprehensive" ? 165 : 110;
-  const histMultiplier = data.claimsHistory === "none" ? 1.0 : data.claimsHistory === "minor_ticket" ? 1.15 : data.claimsHistory === "one_accident" ? 1.3 : data.claimsHistory === "multiple" ? 1.5 : 1.8;
-  const seed = Math.round(baseRate * histMultiplier);
-  const quotes = [
-    { carrier: "Progressive", monthly: seed - 8, badge: "Lowest Rate", badgeColor: "green", deductible: 500 },
-    { carrier: "GEICO", monthly: seed, badge: "Best Value", badgeColor: "gold", deductible: 500 },
-    { carrier: "State Farm", monthly: seed + 12, badge: null, deductible: 250 },
-    { carrier: "Allstate", monthly: seed + 18, badge: null, deductible: 250 },
-  ];
-  const toast = useToast();
-
-  async function selectQuote(q: any) {
-    toast.success(`${q.carrier} quote selected. Our broker will contact you to bind the policy.`);
-    onDone();
-  }
-
-  return (
-    <div className="bg-white border border-border rounded-2xl p-6 space-y-5">
-      <div>
-        <div className="flex items-center justify-between">
-          <h2 className="text-lg font-black text-ink">{quotes.length} Quotes for ZIP {data.zipCode}</h2>
-          <span className="text-[10px] font-bold uppercase tracking-wider text-amber-700 bg-amber-50 border border-amber-200 px-2 py-1 rounded">Beta — rates estimated</span>
-        </div>
-        <p className="text-xs text-muted mt-1">{data.vehicleYear} {data.vehicleMake} {data.vehicleModel} · {data.coverageLevel} coverage</p>
-      </div>
-      <div className="space-y-3">
-        {quotes.map(q => (
-          <div key={q.carrier} className="border-2 border-border rounded-xl p-4 hover:border-[#D97706] transition-colors">
-            <div className="flex items-start justify-between flex-wrap gap-2">
-              <div>
-                <div className="flex items-center gap-2">
-                  <span className="text-base font-black text-ink">{q.carrier}</span>
-                  {q.badge && <span className={`text-[10px] font-bold uppercase px-2 py-0.5 rounded ${q.badgeColor === "green" ? "bg-green-100 text-green-700" : "bg-amber-100 text-amber-700"}`}>{q.badge}</span>}
-                </div>
-                <div className="text-2xl font-black text-[#D97706] mt-1">${q.monthly}<span className="text-sm font-normal text-muted">/month</span></div>
-                <div className="text-xs text-muted">${q.monthly * 12}/year · ${q.deductible} deductible</div>
-              </div>
-              <button onClick={() => selectQuote(q)} className="px-4 py-2 bg-[#D97706] text-white text-sm font-bold rounded-lg hover:bg-amber-700">Select Plan →</button>
-            </div>
-          </div>
-        ))}
-      </div>
-      <div className="text-[11px] text-muted bg-slate-50 rounded-xl p-3">A licensed DFG broker will finalize your exact rate within 1 business day.</div>
-    </div>
-  );
-}
-
 function InsuranceSuccessScreen({
   data,
   enrollmentId,
@@ -634,13 +636,13 @@ function InsuranceSuccessScreen({
     <div className="bg-white border border-border rounded-2xl p-8 space-y-5">
       <div className="text-center space-y-2">
         <div className="text-5xl">🚗</div>
-        <h2 className="text-2xl font-black text-ink">Auto insurance request submitted</h2>
-        <p className="text-sm text-muted">Reference #{reference}. A licensed broker will verify your rate and contact you within 1 business day.</p>
+        <h2 className="text-2xl font-black text-ink">Insurance request submitted</h2>
+        <p className="text-sm text-muted">Reference #{reference}. A licensed broker will review your intake and contact you within 1 business day.</p>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
         <div className="bg-soft rounded-xl p-3">
-          <div className="text-[10px] font-bold uppercase text-muted">Vehicle</div>
-          <div className="font-black text-ink">{data.vehicleYear} {data.vehicleMake}</div>
+          <div className="text-[10px] font-bold uppercase text-muted">Product</div>
+          <div className="font-black text-ink capitalize">{(data.productType || "insurance").replaceAll("_", " ")}</div>
         </div>
         <div className="bg-soft rounded-xl p-3">
           <div className="text-[10px] font-bold uppercase text-muted">Coverage</div>
@@ -697,8 +699,6 @@ function NotaryWizard({ flags }: { flags: any }) {
 
   async function submit() {
     setSubmitting(true);
-    const uid = document.cookie.match(/d_user_id=([^;]+)/)?.[1];
-    if (!uid) { setSubmitting(false); return; }
     try {
       const p = await fetchUserProfile();
       const r = await fetch("/api/services/enroll", {
@@ -710,7 +710,7 @@ function NotaryWizard({ flags }: { flags: any }) {
       const eid = j.enrollmentId || j.enrollment?.id;
       const workflowRes = await fetch("/api/workflows/notary", {
         method: "POST", headers: { "Content-Type": "application/json" }, credentials: "include",
-        body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, documentType: data.documentType, signerCount: parseInt(data.signerCount) || 1, scheduledTime: data.scheduledTime })
+        body: JSON.stringify({ enrollmentId: eid, userId: p.id, clientEmail: p.email, clientName: p.legal_name, documentType: data.documentType, signerCount: parseInt(data.signerCount) || 1, scheduledTime: data.scheduledTime })
       });
       const workflowJson = await workflowRes.json().catch(() => ({}));
       if (!workflowRes.ok) throw new Error(workflowJson.error || "Could not start notary workflow");
@@ -934,8 +934,6 @@ function BookkeepingWizard({ flags }: { flags?: Record<string, boolean> }) {
 
   async function submit() {
     setSubmitting(true);
-    const uid = document.cookie.match(/d_user_id=([^;]+)/)?.[1];
-    if (!uid) { setSubmitting(false); return; }
     try {
       const p = await fetchUserProfile();
       const r = await fetch("/api/services/enroll", {
@@ -947,7 +945,7 @@ function BookkeepingWizard({ flags }: { flags?: Record<string, boolean> }) {
       const eid = j.enrollmentId || j.enrollment?.id;
       await fetch("/api/workflows/bookkeeping", {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enrollmentId: eid, userId: uid, clientEmail: p.email, clientName: p.legal_name, businessStage: data.businessStage, transactionVolume: data.transactionVolume, currentTools: data.currentTools, reportingGoal: data.reportingGoal })
+        body: JSON.stringify({ enrollmentId: eid, userId: p.id, clientEmail: p.email, clientName: p.legal_name, businessStage: data.businessStage, transactionVolume: data.transactionVolume, currentTools: data.currentTools, reportingGoal: data.reportingGoal })
       });
       localStorage.removeItem("dfg-intake-bookkeeping-progress");
       toast.success("Bookkeeping is live!");

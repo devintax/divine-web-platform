@@ -8,6 +8,8 @@ import { isServiceType } from "@/lib/service-workflow";
 import { SERVICE_WORKFLOW } from "@/lib/service-workflow";
 import { signalWorkflow } from "@/lib/temporal";
 import { defaultDeliverableType, uploadToClientVault } from "@/lib/client-vault";
+import { createNotification } from "@/lib/notifications";
+import { sendSms } from "@/lib/sms";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getAuthSession();
@@ -77,9 +79,35 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       bundle.client?.legal_name,
       SERVICE_WORKFLOW[serviceType].label,
       title,
+      bundle.enrollment.user_id,
     );
+    await createNotification({
+      userId: bundle.enrollment.user_id,
+      title: "Ready for review",
+      body: `${title} is ready for your review and approval.`,
+      type: "review",
+      href: "/portal/orders",
+      relatedResourceType: "deliverable",
+      relatedResourceId: deliverable.id,
+    });
   } else {
-    await DFGEmail.caseCompleted(bundle.client?.email, bundle.client?.legal_name, SERVICE_WORKFLOW[serviceType].label);
+    await DFGEmail.caseCompleted(bundle.client?.email, bundle.client?.legal_name, SERVICE_WORKFLOW[serviceType].label, bundle.enrollment.user_id);
+    await createNotification({
+      userId: bundle.enrollment.user_id,
+      title: "Deliverable complete",
+      body: `${title} has been delivered to your vault.`,
+      type: "complete",
+      href: "/portal/vault",
+      relatedResourceType: "deliverable",
+      relatedResourceId: deliverable.id,
+    });
+    if (bundle.client?.phone) {
+      await sendSms(
+        bundle.client.phone,
+        `Divine Financial Group: ${title} has been delivered to your secure vault.`,
+        { relatedResourceType: "deliverable", relatedResourceId: deliverable.id, sentBy: session.profileId, preference: "sms_on_update", preferenceUserId: bundle.enrollment.user_id },
+      );
+    }
   }
   return NextResponse.json({ success: true, deliverable });
 }
