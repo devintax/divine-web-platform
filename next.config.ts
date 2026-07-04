@@ -22,7 +22,7 @@ const nextConfig: NextConfig = {
           "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cal.dfgworld.net",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' https://fonts.gstatic.com data:",
-          "img-src 'self' data: blob: https://cal.dfgworld.net",
+          "img-src 'self' data: blob: https://cal.dfgworld.net http://localhost:7130 http://172.16.16.59:7130 https://insforge.dfgworld.net",
           "connect-src 'self' http://localhost:* https://api-vendel.dfgworld.net https://api-textbee.dfgworld.net https://api.resend.com https://api.stripe.com https://cal.dfgworld.net",
           "frame-src 'self' https://cal.dfgworld.net",
           "frame-ancestors 'none'",
