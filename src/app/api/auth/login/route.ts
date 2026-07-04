@@ -46,7 +46,69 @@ export async function POST(req: NextRequest) {
     }
 
     const admin = getSupabaseAdmin();
-    const { data: profile } = await admin.from("user_profiles").select("id,role,legal_name,email,is_active,email_verified").eq("auth_user_id", userId).single();
+    let { data: profile } = await admin
+      .from("user_profiles")
+      .select("id,role,legal_name,email,is_active,email_verified")
+      .eq("auth_user_id", userId)
+      .single();
+
+    if (!profile) {
+      const { data: profileByEmail } = await admin
+        .from("user_profiles")
+        .select("id,role,legal_name,email,is_active,email_verified")
+        .eq("email", normalizedEmail)
+        .single();
+
+      if (profileByEmail) {
+        const { data: repairedProfile, error: repairError } = await admin
+          .from("user_profiles")
+          .update({
+            auth_user_id: userId,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", profileByEmail.id)
+          .select("id,role,legal_name,email,is_active,email_verified")
+          .single();
+
+        if (repairError || !repairedProfile) {
+          console.error("[auth/login] profile auth mapping repair failed:", repairError);
+          return NextResponse.json({ error: "Account profile is unavailable. Please contact support." }, { status: 500 });
+        }
+
+        profile = repairedProfile;
+      }
+    }
+
+    if (!profile) {
+      const displayName = json.user?.profile?.name || json.user?.name || normalizedEmail.split("@")[0];
+      const { data: createdProfile, error: createProfileError } = await admin
+        .from("user_profiles")
+        .insert({
+          id: userId,
+          auth_user_id: userId,
+          legal_name: displayName,
+          email: json.user?.email || normalizedEmail,
+          role: "client",
+          is_active: true,
+          email_verified: json.user?.emailVerified !== false,
+          email_verified_at: json.user?.emailVerified === false ? null : new Date().toISOString(),
+        })
+        .select("id,role,legal_name,email,is_active,email_verified")
+        .single();
+      if (createProfileError || !createdProfile) {
+        console.error("[auth/login] profile bootstrap failed:", createProfileError);
+        return NextResponse.json({ error: "Account profile is missing. Please contact support." }, { status: 500 });
+      }
+      await admin.from("user_settings").insert({
+        user_id: createdProfile.id,
+        email_on_message: true,
+        email_on_update: true,
+        email_on_complete: true,
+        sms_on_message: true,
+        sms_on_update: false,
+      });
+      profile = createdProfile;
+    }
     if (profile) {
       await admin.from("user_profiles").update({ updated_at: new Date().toISOString() }).eq("id", profile.id);
     }

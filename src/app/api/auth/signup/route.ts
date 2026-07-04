@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@insforge/sdk";
 import { DFGEmail } from "@/lib/email/dfg-email";
 import { createEmailVerification } from "@/lib/email-verification";
+import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
 const KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || process.env.INSFORGE_ANON_KEY || "";
@@ -36,7 +37,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "User creation failed" }, { status: 500 });
     }
 
-    const { data: profile, error: profileErr } = await insforge.database.from("user_profiles").insert({
+    const admin = getSupabaseAdmin();
+    const { data: profile, error: profileErr } = await admin.from("user_profiles").insert({
       id: userId,
       auth_user_id: userId,
       legal_name: displayName,
@@ -51,7 +53,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Account created but profile setup failed. Please contact support." }, { status: 500 });
     }
 
-    await insforge.database.from("user_settings").insert({
+    await admin.from("user_settings").insert({
       user_id: profile?.id || userId,
       email_on_message: true,
       email_on_update: true,
