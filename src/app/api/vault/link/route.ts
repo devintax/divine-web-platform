@@ -4,6 +4,7 @@ import { verifyStaff } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/sms";
+import { allowsNotificationPreference } from "@/lib/notification-preferences";
 
 export const runtime = "nodejs";
 
@@ -48,7 +49,7 @@ export async function POST(req: NextRequest) {
   let emailSent = false;
   let smsSent = false;
   if (recipientEmail) {
-    emailSent = await sendUploadLinkEmail(recipientEmail, purpose, url, expiresAt);
+    emailSent = await sendUploadLinkEmail(recipientEmail, purpose, url, expiresAt, targetUserId);
     if (emailSent) await admin.from("upload_links").update({ email_sent_at: new Date().toISOString() }).eq("id", data.id);
   }
   const { data: client } = await admin.from("user_profiles").select("legal_name,phone").eq("id", targetUserId).single();
@@ -100,8 +101,10 @@ export async function GET(req: NextRequest) {
   });
 }
 
-async function sendUploadLinkEmail(to: string, purpose: string, url: string, expiresAt: string) {
+async function sendUploadLinkEmail(to: string, purpose: string, url: string, expiresAt: string, userId: string) {
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return false;
+  const allowed = await allowsNotificationPreference({ userId, email: to, key: "email_on_update" });
+  if (!allowed) return false;
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

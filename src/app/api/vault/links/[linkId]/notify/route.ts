@@ -3,6 +3,7 @@ import { verifyStaff } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { logAudit } from "@/lib/audit";
 import { sendSms } from "@/lib/sms";
+import { allowsNotificationPreference } from "@/lib/notification-preferences";
 
 export const runtime = "nodejs";
 
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lin
   let smsSent = false;
 
   if ((channel === "email" || channel === "both") && (link.recipient_email || client.email)) {
-    emailSent = await sendUploadLinkEmail(link.recipient_email || client.email, link.purpose || "Document upload", uploadUrl, link.expires_at);
+    emailSent = await sendUploadLinkEmail(link.recipient_email || client.email, link.purpose || "Document upload", uploadUrl, link.expires_at, client.id);
     if (emailSent) await admin.from("upload_links").update({ email_sent_at: new Date().toISOString() }).eq("id", linkId);
     else errors.push("Email failed");
   }
@@ -57,8 +58,10 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ lin
   return NextResponse.json({ success: errors.length === 0, emailSent, smsSent, errors });
 }
 
-async function sendUploadLinkEmail(to: string, purpose: string, url: string, expiresAt?: string | null) {
+async function sendUploadLinkEmail(to: string, purpose: string, url: string, expiresAt: string | null | undefined, userId: string) {
   if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return false;
+  const allowed = await allowsNotificationPreference({ userId, email: to, key: "email_on_update" });
+  if (!allowed) return false;
   try {
     const res = await fetch("https://api.resend.com/emails", {
       method: "POST",

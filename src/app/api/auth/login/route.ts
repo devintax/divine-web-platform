@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
-import { DFGEmail } from "@/lib/email/dfg-email";
-import { createTwoFactorChallenge } from "@/lib/two-factor";
+import { createTwoFactorChallenge, sendTwoFactorCode } from "@/lib/two-factor";
 import { createSessionToken, LEGACY_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from "@/lib/session-token";
 
 const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
@@ -48,14 +47,14 @@ export async function POST(req: NextRequest) {
     const admin = getSupabaseAdmin();
     let { data: profile } = await admin
       .from("user_profiles")
-      .select("id,role,legal_name,email,is_active,email_verified")
+      .select("id,role,legal_name,email,phone,is_active,email_verified")
       .eq("auth_user_id", userId)
       .single();
 
     if (!profile) {
       const { data: profileByEmail } = await admin
         .from("user_profiles")
-        .select("id,role,legal_name,email,is_active,email_verified")
+        .select("id,role,legal_name,email,phone,is_active,email_verified")
         .eq("email", normalizedEmail)
         .single();
 
@@ -67,7 +66,7 @@ export async function POST(req: NextRequest) {
             updated_at: new Date().toISOString(),
           })
           .eq("id", profileByEmail.id)
-          .select("id,role,legal_name,email,is_active,email_verified")
+          .select("id,role,legal_name,email,phone,is_active,email_verified")
           .single();
 
         if (repairError || !repairedProfile) {
@@ -93,7 +92,7 @@ export async function POST(req: NextRequest) {
           email_verified: json.user?.emailVerified !== false,
           email_verified_at: json.user?.emailVerified === false ? null : new Date().toISOString(),
         })
-        .select("id,role,legal_name,email,is_active,email_verified")
+        .select("id,role,legal_name,email,phone,is_active,email_verified")
         .single();
       if (createProfileError || !createdProfile) {
         console.error("[auth/login] profile bootstrap failed:", createProfileError);
@@ -132,11 +131,18 @@ export async function POST(req: NextRequest) {
           profileId: profile.id,
           email: profile.email || normalizedEmail,
         });
-        await DFGEmail.twoFactorCode(profile.email || normalizedEmail, profile.legal_name, code);
+        const twoFactorDelivery = await sendTwoFactorCode({
+          code,
+          email: profile.email || normalizedEmail,
+          phone: profile.phone,
+          legalName: profile.legal_name,
+        });
         const response = NextResponse.json({
           success: false,
           requiresTwoFactor: true,
           email: profile.email || normalizedEmail,
+          channel: twoFactorDelivery.channel,
+          hint: twoFactorDelivery.hint,
           message: "Verification code sent.",
         });
         response.cookies.set("d_2fa_challenge", token, { ...SESSION_COOKIE, maxAge: maxAgeSeconds });

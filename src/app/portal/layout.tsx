@@ -1,6 +1,7 @@
 "use client";
 
 import { BotMessageSquare, BriefcaseBusiness, Building2, CalendarDays, FileSignature, Home, KeyRound, LogOut, ReceiptText, ShieldCheck, UserRound, Vault } from "lucide-react";
+import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { ComponentType } from "react";
@@ -136,10 +137,14 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <NotificationBell />
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="w-9 h-9 rounded-full bg-[#0B4DA2] text-white text-xs font-black grid place-items-center hover:bg-[#083a7a]"
+                className="relative w-9 h-9 rounded-full bg-[#0B4DA2] text-white text-xs font-black grid place-items-center hover:bg-[#083a7a] overflow-hidden"
                 aria-label="Open account menu"
               >
-                {initials}
+                {profile.avatar_url ? (
+                  <Image src={profile.avatar_url} alt={profile.legal_name || "Profile photo"} fill sizes="36px" className="object-cover" unoptimized />
+                ) : (
+                  initials
+                )}
               </button>
               {showMenu && (
                 <div className="absolute right-0 top-11 w-56 bg-white border border-border rounded-xl shadow-lg p-2 z-50">

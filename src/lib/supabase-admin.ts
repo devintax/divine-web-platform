@@ -39,7 +39,12 @@ export function getSupabaseAdmin() {
           },
           createSignedUrl: async (path: string) => {
             const publicUrl = typeof (b as any).getPublicUrl === "function" ? (b as any).getPublicUrl(path) : null;
-            return { data: { signedUrl: publicUrl?.data?.publicUrl || publicUrl?.publicUrl || "" }, error: null };
+            const url = typeof publicUrl === "string" ? publicUrl : publicUrl?.data?.publicUrl || publicUrl?.publicUrl || "";
+            return { data: { signedUrl: url }, error: null };
+          },
+          getPublicUrl: (path: string) => {
+            const publicUrl = typeof (b as any).getPublicUrl === "function" ? (b as any).getPublicUrl(path) : "";
+            return typeof publicUrl === "string" ? publicUrl : publicUrl?.data?.publicUrl || publicUrl?.publicUrl || "";
           },
         };
       },

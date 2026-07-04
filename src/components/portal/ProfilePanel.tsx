@@ -1,8 +1,10 @@
 "use client";
 
-import { Bell, Check, KeyRound, Loader2, Mail, MapPin, Phone, Save, UserRound } from "lucide-react";
+import { Bell, Camera, Check, KeyRound, Loader2, Mail, MapPin, Phone, Save, UserRound } from "lucide-react";
+import Image from "next/image";
+import type { ChangeEvent } from "react";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 type Settings = {
   email_on_message: boolean;
@@ -24,6 +26,7 @@ type Profile = {
   city?: string;
   state?: string;
   zip?: string;
+  avatar_url?: string | null;
   role: string;
   created_at?: string;
   settings: Settings;
@@ -43,8 +46,11 @@ export default function ProfilePanel() {
   const [form, setForm] = useState<Partial<Profile> & { settings?: Settings }>({ settings: EMPTY_SETTINGS });
   const [tab, setTab] = useState<"personal" | "notifications" | "account">("personal");
   const [saving, setSaving] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState("");
+  const [avatarError, setAvatarError] = useState("");
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetch("/api/portal/profile", { credentials: "include" })
@@ -70,6 +76,43 @@ export default function ProfilePanel() {
       ...current,
       settings: { ...EMPTY_SETTINGS, ...(current.settings || {}), [key]: value },
     }));
+  }
+
+  async function handleAvatarChange(event: ChangeEvent<HTMLInputElement>) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setAvatarError("");
+    if (!["image/jpeg", "image/png", "image/webp", "image/gif"].includes(file.type)) {
+      setAvatarError("Avatar must be a JPG, PNG, WebP, or GIF image.");
+      event.target.value = "";
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setAvatarError("Avatar must be 5MB or smaller.");
+      event.target.value = "";
+      return;
+    }
+
+    setUploadingAvatar(true);
+    try {
+      const body = new FormData();
+      body.append("avatar", file);
+      const res = await fetch("/api/portal/profile/avatar", {
+        method: "POST",
+        credentials: "include",
+        body,
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(data.error || "Avatar upload failed");
+      const avatarUrl = data.avatarUrl || null;
+      setProfile((current) => current ? { ...current, avatar_url: avatarUrl } : current);
+      setForm((current) => ({ ...current, avatar_url: avatarUrl }));
+    } catch (err: any) {
+      setAvatarError(err.message || "Avatar upload failed");
+    } finally {
+      setUploadingAvatar(false);
+      event.target.value = "";
+    }
   }
 
   async function saveProfile() {
@@ -108,12 +151,38 @@ export default function ProfilePanel() {
     <div className="max-w-3xl mx-auto space-y-5">
       <section className="bg-white border border-border rounded-xl p-5">
         <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-          <div className="w-14 h-14 rounded-xl bg-[#0B4DA2] text-white grid place-items-center shrink-0">
-            <UserRound size={28} />
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="group relative w-16 h-16 rounded-xl bg-[#0B4DA2] text-white grid place-items-center overflow-hidden"
+              aria-label="Change profile photo"
+              title="Change profile photo"
+              disabled={uploadingAvatar}
+            >
+              {profile?.avatar_url ? (
+                <Image src={profile.avatar_url} alt="Profile photo" fill sizes="64px" className="object-cover" unoptimized />
+              ) : (
+                <span className="text-2xl font-black">{initials(profile?.legal_name || profile?.email)}</span>
+              )}
+              <span className="absolute inset-0 bg-black/50 text-white opacity-0 group-hover:opacity-100 transition-opacity grid place-items-center">
+                {uploadingAvatar ? <Loader2 size={20} className="animate-spin" /> : <Camera size={20} />}
+              </span>
+            </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp,image/gif"
+              className="hidden"
+              onChange={handleAvatarChange}
+              disabled={uploadingAvatar}
+            />
           </div>
           <div className="min-w-0 flex-1">
             <h1 className="text-2xl font-black text-ink">My Profile</h1>
             <p className="text-sm text-muted truncate">{profile?.email || "Manage your account information and preferences."}</p>
+            {avatarError && <p className="mt-1 text-xs font-bold text-red-700">{avatarError}</p>}
+            {uploadingAvatar && <p className="mt-1 text-xs font-bold text-muted">Uploading photo...</p>}
           </div>
         </div>
       </section>
@@ -176,7 +245,7 @@ export default function ProfilePanel() {
               onChange={(value) => updateSetting("two_factor_enabled", value)}
             />
             <p className="mt-3 text-xs leading-6 text-muted">
-              When enabled, sign-in requires a 6-digit verification code sent to your account email after your password is accepted.
+              When enabled, sign-in requires a 6-digit verification code. The code is sent by text message to your phone number on file, or by email if no phone number is saved.
             </p>
           </div>
           <div className="grid sm:grid-cols-2 gap-4 text-sm">
@@ -206,6 +275,16 @@ export default function ProfilePanel() {
       </div>
     </div>
   );
+}
+
+function initials(value?: string | null) {
+  return (value || "?")
+    .split(" ")
+    .map((part) => part[0])
+    .filter(Boolean)
+    .slice(0, 2)
+    .join("")
+    .toUpperCase();
 }
 
 function Field({ label, value, onChange, readOnly, icon }: { label: string; value: string; onChange?: (value: string) => void; readOnly?: boolean; icon?: ReactNode }) {

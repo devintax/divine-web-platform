@@ -18,6 +18,7 @@ function LoginContent() {
   const [password, setPassword] = useState("");
   const [code, setCode] = useState("");
   const [needsTwoFactor, setNeedsTwoFactor] = useState(false);
+  const [twoFactorHint, setTwoFactorHint] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
@@ -35,6 +36,7 @@ function LoginContent() {
       if (!res.ok) { setError(data.error || "Login failed"); setLoading(false); return; }
       if (data.requiresTwoFactor) {
         setNeedsTwoFactor(true);
+        setTwoFactorHint(data.hint || "Enter the 6-digit verification code.");
         setLoading(false);
         return;
       }
@@ -81,14 +83,14 @@ function LoginContent() {
           {needsTwoFactor ? (
             <form onSubmit={handleVerify} className="flex flex-col gap-4">
               <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#0B4DA2]">
-                Enter the 6-digit code sent to {email}.
+                {twoFactorHint || "Enter the 6-digit verification code."}
               </div>
               <div><label className="text-xs font-bold text-muted block mb-1.5">Verification Code</label>
                 <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" required minLength={6}
                   className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-center text-2xl font-black tracking-[0.35em] outline-none focus:border-[#0B4DA2] transition-colors" />
               </div>
               <Btn variant="primary" sz="lg" type="submit" disabled={loading || code.length !== 6} className="w-full">{loading ? "Verifying..." : "Verify & Sign In"}</Btn>
-              <button type="button" onClick={() => { setNeedsTwoFactor(false); setCode(""); }} className="text-xs font-bold text-muted hover:text-[#0B4DA2]">
+              <button type="button" onClick={() => { setNeedsTwoFactor(false); setTwoFactorHint(""); setCode(""); }} className="text-xs font-bold text-muted hover:text-[#0B4DA2]">
                 Use a different account
               </button>
             </form>

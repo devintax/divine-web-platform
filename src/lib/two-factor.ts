@@ -1,5 +1,7 @@
 import "server-only";
 import { createHmac, randomInt, timingSafeEqual } from "crypto";
+import { DFGEmail } from "@/lib/email/dfg-email";
+import { sendSms } from "@/lib/sms";
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
 
@@ -64,4 +66,41 @@ export function verifyTwoFactorChallenge(token: string | undefined, code: string
   const actual = Buffer.from(hashCode(code));
   if (expected.length !== actual.length || !timingSafeEqual(expected, actual)) return null;
   return payload;
+}
+
+export async function sendTwoFactorCode(input: {
+  code: string;
+  email: string;
+  phone?: string | null;
+  legalName?: string | null;
+}) {
+  const phone = String(input.phone || "").trim();
+  if (phone) {
+    const sms = await sendSms(
+      phone,
+      `Your Divine Financial Group verification code is ${input.code}. It expires in 10 minutes. Do not share this code with anyone.`,
+      {
+        relatedResourceType: "two_factor",
+        bypassPreferences: true,
+      },
+    );
+    if (sms.success) {
+      return { channel: "sms" as const, hint: `Code sent via text to ${maskPhone(phone)}` };
+    }
+    console.warn("[2fa] SMS delivery failed; falling back to email:", sms.error);
+  }
+
+  await DFGEmail.twoFactorCode(input.email, input.legalName, input.code);
+  return { channel: "email" as const, hint: `Code sent to ${maskEmail(input.email)}` };
+}
+
+function maskPhone(phone: string) {
+  const digits = phone.replace(/\D/g, "");
+  return `***-***-${digits.slice(-4) || "****"}`;
+}
+
+function maskEmail(email: string) {
+  const [user = "", domain = ""] = email.split("@");
+  const first = user[0] || "*";
+  return domain ? `${first}***@${domain}` : `${first}***`;
 }
