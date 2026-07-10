@@ -33,9 +33,38 @@ export async function GET() {
                 .eq("read_by_client", false)
             : { count: 0 };
 
+          let unreadConversations = 0;
+          try {
+            const { data: memberships } = await admin
+              .from("conversation_participants")
+              .select("conversation_id,last_read_at")
+              .eq("user_id", profileId)
+              .eq("is_archived", false);
+            const membershipRows = ((memberships as any[]) || []);
+            const conversationIds = membershipRows.map((row) => row.conversation_id);
+            const { data: conversationMessages } = conversationIds.length
+              ? await admin
+                  .from("conversation_messages")
+                  .select("id,conversation_id,sender_id,created_at")
+                  .in("conversation_id", conversationIds)
+                  .neq("sender_id", profileId)
+                  .order("created_at", { ascending: false })
+                  .limit(500)
+              : { data: [] };
+            const lastReadByConversation = new Map(
+              membershipRows.map((row) => [row.conversation_id, row.last_read_at ? new Date(row.last_read_at).getTime() : 0]),
+            );
+            unreadConversations = ((conversationMessages as any[]) || []).filter((message) => {
+              const lastReadAt = lastReadByConversation.get(message.conversation_id) || 0;
+              return new Date(message.created_at).getTime() > lastReadAt;
+            }).length;
+          } catch (conversationError) {
+            console.warn("[portal-events] conversation snapshot skipped:", conversationError instanceof Error ? conversationError.message : conversationError);
+          }
+
           if (closed) return;
           controller.enqueue(
-            encoder.encode(`event: portal-update\ndata: ${JSON.stringify({ enrollments: enrollments || [], unreadMessages: unreadMessages || 0, sentAt: new Date().toISOString() })}\n\n`),
+            encoder.encode(`event: portal-update\ndata: ${JSON.stringify({ enrollments: enrollments || [], unreadMessages: unreadMessages || 0, unreadConversations, sentAt: new Date().toISOString() })}\n\n`),
           );
         } catch (error) {
           if (!closed) {

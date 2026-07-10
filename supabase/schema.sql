@@ -325,6 +325,55 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+-- General messaging outside of service cases
+CREATE TABLE IF NOT EXISTS conversations (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  type VARCHAR(20) NOT NULL CHECK (type IN ('direct','group','broadcast','case')),
+  title VARCHAR(255),
+  direct_key VARCHAR(255) UNIQUE,
+  created_by UUID REFERENCES user_profiles(id),
+  audience_type VARCHAR(100),
+  audience_filter JSONB DEFAULT '{}'::jsonb,
+  case_enrollment_id UUID REFERENCES service_enrollments(id) ON DELETE SET NULL,
+  is_archived BOOLEAN DEFAULT FALSE,
+  last_message_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS conversation_participants (
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  role VARCHAR(20) DEFAULT 'member' CHECK (role IN ('owner','member')),
+  joined_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  last_read_at TIMESTAMP WITH TIME ZONE,
+  is_muted BOOLEAN DEFAULT FALSE,
+  is_archived BOOLEAN DEFAULT FALSE,
+  PRIMARY KEY (conversation_id, user_id)
+);
+
+CREATE TABLE IF NOT EXISTS conversation_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  sender_id UUID REFERENCES user_profiles(id),
+  body TEXT NOT NULL,
+  metadata JSONB DEFAULT '{}'::jsonb,
+  is_deleted BOOLEAN DEFAULT FALSE,
+  deleted_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS broadcast_targets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  conversation_id UUID REFERENCES conversations(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  delivery_status VARCHAR(20) DEFAULT 'queued' CHECK (delivery_status IN ('queued','notified','failed')),
+  error_message TEXT,
+  notified_at TIMESTAMP WITH TIME ZONE,
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  UNIQUE(conversation_id, user_id)
+);
+
 CREATE TABLE IF NOT EXISTS callback_queue (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES user_profiles(id) ON DELETE SET NULL,
@@ -358,6 +407,10 @@ ALTER TABLE knowledge_base ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notification_reads ENABLE ROW LEVEL SECURITY;
 ALTER TABLE notifications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversations ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
+ALTER TABLE conversation_messages ENABLE ROW LEVEL SECURITY;
+ALTER TABLE broadcast_targets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE callback_queue ENABLE ROW LEVEL SECURITY;
 
 -- Audit logs are append-only. Application roles may insert/select through
@@ -378,6 +431,10 @@ CREATE POLICY "Users can view own missing docs" ON missing_documents FOR SELECT 
 CREATE POLICY "Users can view own formations" ON formations FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can view own quotes" ON insurance_quotes FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can view own notary sessions" ON notary_sessions FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can view own conversations" ON conversations FOR SELECT USING (true);
+CREATE POLICY "Users can view own conversation participants" ON conversation_participants FOR SELECT USING (true);
+CREATE POLICY "Users can view own conversation messages" ON conversation_messages FOR SELECT USING (true);
+CREATE POLICY "Users can view own broadcast targets" ON broadcast_targets FOR SELECT USING (true);
 CREATE POLICY "Anyone can submit contact form" ON contact_submissions FOR INSERT WITH CHECK (true);
 CREATE POLICY "Users can view own settings" ON user_settings FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can update own settings" ON user_settings FOR UPDATE USING (auth.uid() = user_id);
@@ -424,5 +481,12 @@ CREATE INDEX idx_notification_reads_staff ON notification_reads(staff_id, notifi
 CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at DESC);
 CREATE INDEX idx_notifications_user_unread ON notifications(user_id, read_at) WHERE read_at IS NULL;
 CREATE INDEX idx_chat_messages_user ON chat_messages(user_id, created_at);
+CREATE INDEX idx_conversations_last_message ON conversations(last_message_at DESC, created_at DESC);
+CREATE INDEX idx_conversations_direct_key ON conversations(direct_key) WHERE direct_key IS NOT NULL;
+CREATE INDEX idx_conversation_participants_user ON conversation_participants(user_id, is_archived);
+CREATE INDEX idx_conversation_participants_conversation ON conversation_participants(conversation_id);
+CREATE INDEX idx_conversation_messages_conversation ON conversation_messages(conversation_id, created_at);
+CREATE INDEX idx_broadcast_targets_conversation ON broadcast_targets(conversation_id);
+CREATE INDEX idx_broadcast_targets_user ON broadcast_targets(user_id, delivery_status);
 CREATE INDEX idx_callback_queue_status ON callback_queue(status, created_at);
 CREATE INDEX idx_callback_queue_user ON callback_queue(user_id);

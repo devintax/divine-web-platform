@@ -18,7 +18,8 @@
     "setup:super-admin": "ts-node --project tsconfig.json scripts/create-super-admin.ts",
     "schedules:register": "ts-node -P temporal/tsconfig.json temporal/src/schedules.ts",
     "e2e:lifecycle": "tsx scripts/e2e-lifecycle.ts",
-    "backfill:post-audit-gaps": "tsx scripts/backfill-post-audit-gaps.ts"
+    "backfill:post-audit-gaps": "tsx scripts/backfill-post-audit-gaps.ts",
+    "db:conversations": "tsx scripts/apply-conversations-schema.ts"
   },
   "dependencies": {
     "@hookform/resolvers": "^5.2.2",
@@ -27,9 +28,11 @@
     "@temporalio/client": "^1.16.2",
     "@temporalio/worker": "^1.16.2",
     "@temporalio/workflow": "^1.16.2",
+    "@types/nodemailer": "^8.0.1",
     "concurrently": "^9.2.1",
     "lucide-react": "^1.11.0",
     "next": "16.2.4",
+    "nodemailer": "^9.0.3",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-hook-form": "^7.73.1",

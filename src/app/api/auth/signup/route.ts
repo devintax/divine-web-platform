@@ -62,12 +62,32 @@ export async function POST(req: NextRequest) {
       sms_on_update: false,
     });
 
-    const { token } = await createEmailVerification(userId);
-    const verifyUrl = `${APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
-    await Promise.allSettled([
-      DFGEmail.welcome(normalizedEmail, displayName),
-      DFGEmail.emailVerification(normalizedEmail, displayName, verifyUrl),
-    ]);
+    await createEmailVerification(userId);
+
+    const verification = await insforge.auth.resendVerificationEmail({
+      email: normalizedEmail,
+      redirectTo: `${APP_URL}/login`,
+    });
+
+    if (verification.error) {
+      console.error("[auth/signup] verification email failed", verification.error);
+      return NextResponse.json(
+        {
+          error: "Account created, but the verification email could not be sent. Please contact support or request a new verification code.",
+          accountCreated: true,
+          requiresEmailVerification: true,
+          email: normalizedEmail,
+          userId,
+          profileId: profile?.id,
+        },
+        { status: verification.error.statusCode || 502 },
+      );
+    }
+
+    const welcome = await DFGEmail.welcome(normalizedEmail, displayName);
+    if (!welcome.sent && !welcome.skipped) {
+      console.warn("[auth/signup] welcome email skipped or failed", welcome.error);
+    }
 
     return NextResponse.json({
       success: true,
@@ -75,7 +95,7 @@ export async function POST(req: NextRequest) {
       email: normalizedEmail,
       userId,
       profileId: profile?.id,
-      message: "Account created. Please verify your email before signing in.",
+      message: verification.data?.message || "Account created. Please verify your email before signing in.",
     }, { status: 201 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Signup failed" }, { status: 500 });

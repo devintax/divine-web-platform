@@ -16,6 +16,7 @@ const SERVICE_DESKS = [
   { label: "Knowledge Base", href: "/portal/admin/knowledge-base", color: "#9333EA", body: "Staff answers for concierge and support" },
   { label: "Compliance Calendar", href: "/portal/admin/compliance", color: "#0B4DA2", body: "Formation annual report reminders and staff follow-up" },
   { label: "Registered Agent", href: "/portal/admin/registered-agent", color: "#155E75", body: "SOP delivery tracking and agent service follow-up" },
+  { label: "Secure Messages", href: "/portal/admin/messages", color: "#0B4DA2", body: "Direct, group, and broadcast conversations" },
 ];
 
 export default function AdminPage() {

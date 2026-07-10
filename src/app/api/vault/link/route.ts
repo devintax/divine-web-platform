@@ -3,8 +3,8 @@ import { randomUUID } from "crypto";
 import { verifyStaff } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { logAudit } from "@/lib/audit";
+import { DFGEmail } from "@/lib/email/dfg-email";
 import { sendSms } from "@/lib/sms";
-import { allowsNotificationPreference } from "@/lib/notification-preferences";
 
 export const runtime = "nodejs";
 
@@ -102,27 +102,13 @@ export async function GET(req: NextRequest) {
 }
 
 async function sendUploadLinkEmail(to: string, purpose: string, url: string, expiresAt: string, userId: string) {
-  if (!process.env.RESEND_API_KEY || !process.env.RESEND_FROM_EMAIL) return false;
-  const allowed = await allowsNotificationPreference({ userId, email: to, key: "email_on_update" });
-  if (!allowed) return false;
-  try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL,
-        to,
-        subject: "Secure document upload link - Divine Financial Group",
-        html: `<p>Please upload your document securely for Divine Financial Group.</p><p><b>Purpose:</b> ${escapeHtml(purpose)}</p><p><a href="${url}">Upload documents</a></p><p>This link expires ${new Date(expiresAt).toLocaleString()}.</p>`,
-      }),
-    });
-    return res.ok;
-  } catch {
-    return false;
-  }
+  const result = await DFGEmail.raw(
+    to,
+    "Secure document upload link - Divine Financial Group",
+    `<p>Please upload your document securely for Divine Financial Group.</p><p><b>Purpose:</b> ${escapeHtml(purpose)}</p><p><a href="${url}">Upload documents</a></p><p>This link expires ${new Date(expiresAt).toLocaleString()}.</p>`,
+    { preference: "email_on_update", userId },
+  );
+  return result.sent;
 }
 
 function escapeHtml(value: string) {

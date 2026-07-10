@@ -111,9 +111,46 @@ export async function POST(req: NextRequest) {
     if (profile) {
       await admin.from("user_profiles").update({ updated_at: new Date().toISOString() }).eq("id", profile.id);
     }
+    if (profile && profile.email_verified === false && json.user?.emailVerified === true) {
+      const { data: verifiedProfile, error: verifiedProfileError } = await admin
+        .from("user_profiles")
+        .update({
+          email_verified: true,
+          email_verified_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", profile.id)
+        .select("id,role,legal_name,email,phone,is_active,email_verified")
+        .single();
+
+      if (verifiedProfileError || !verifiedProfile) {
+        console.error("[auth/login] email verification sync failed:", verifiedProfileError);
+        return NextResponse.json({ error: "Account verification sync failed. Please contact support." }, { status: 500 });
+      }
+
+      profile = verifiedProfile;
+    }
     if (profile && profile.email_verified === false) {
+      const verificationRes = await fetch(`${BASE}/api/auth/email/send-verification`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "apikey": KEY },
+        body: JSON.stringify({ email: normalizedEmail, redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login` }),
+      }).catch((error) => {
+        console.error("[auth/login] verification resend failed:", error);
+        return null;
+      });
+
+      if (verificationRes && !verificationRes.ok) {
+        const verificationError = await verificationRes.json().catch(() => ({}));
+        console.error("[auth/login] verification resend rejected:", verificationError);
+      }
+
       return NextResponse.json(
-        { error: "Please verify your email before signing in. Check your inbox for the verification link." },
+        {
+          error: "Please verify your email before signing in. We sent a verification code to your inbox.",
+          requiresEmailVerification: true,
+          email: profile.email || normalizedEmail,
+        },
         { status: 403 },
       );
     }

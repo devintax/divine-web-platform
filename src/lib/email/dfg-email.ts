@@ -1,4 +1,5 @@
 import "server-only";
+import nodemailer from "nodemailer";
 import { allowsNotificationPreference, type NotificationPreferenceKey } from "@/lib/notification-preferences";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
@@ -11,7 +12,19 @@ type EmailOptions = {
 };
 
 function canSendEmail() {
-  return Boolean(process.env.RESEND_API_KEY && process.env.RESEND_FROM_EMAIL);
+  return Boolean(process.env.MAIL_HOST && process.env.MAIL_PORT && process.env.MAIL_USER && process.env.MAIL_PASS && process.env.MAIL_FROM);
+}
+
+function smtpTransport() {
+  return nodemailer.createTransport({
+    host: process.env.MAIL_HOST,
+    port: Number(process.env.MAIL_PORT || 587),
+    secure: String(process.env.MAIL_SECURE || "").toLowerCase() === "true" || process.env.MAIL_PORT === "465",
+    auth: {
+      user: process.env.MAIL_USER,
+      pass: process.env.MAIL_PASS,
+    },
+  });
 }
 
 function escapeHtml(value: string) {
@@ -28,21 +41,13 @@ async function sendEmail(to: string | null | undefined, subject: string, html: s
   });
   if (!allowed) return { sent: false, skipped: true, error: "Email disabled by notification preferences" };
   try {
-    const res = await fetch("https://api.resend.com/emails", {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        from: process.env.RESEND_FROM_EMAIL,
-        reply_to: process.env.RESEND_REPLY_TO || process.env.RESEND_FROM_EMAIL,
-        to,
-        subject,
-        html,
-      }),
+    await smtpTransport().sendMail({
+      from: `"Divine Financial Group" <${process.env.MAIL_FROM}>`,
+      replyTo: process.env.MAIL_REPLY_TO || process.env.MAIL_FROM,
+      to,
+      subject,
+      html,
     });
-    if (!res.ok) return { sent: false, error: await res.text() };
     return { sent: true };
   } catch (error: any) {
     return { sent: false, error: error?.message || "Email send failed" };
@@ -72,6 +77,10 @@ function button(label: string, href: string, color = "#0B4DA2") {
 }
 
 export const DFGEmail = {
+  raw(to: string | null | undefined, subject: string, html: string, options?: EmailOptions) {
+    return sendEmail(to, subject, html, options);
+  },
+
   intakeConfirmation(to: string | null | undefined, name: string | null | undefined, service: string, referenceId: string, userId?: string | null) {
     return sendEmail(
       to,

@@ -1,6 +1,6 @@
 "use client";
 
-import { BotMessageSquare, BriefcaseBusiness, Building2, CalendarDays, FileSignature, Home, KeyRound, LogOut, ReceiptText, ShieldCheck, UserRound, Vault } from "lucide-react";
+import { BotMessageSquare, BriefcaseBusiness, Building2, CalendarDays, FileSignature, Home, KeyRound, LogOut, MessageSquareText, ReceiptText, ShieldCheck, UserRound, Vault } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -17,6 +17,7 @@ const ALL_NAV = [
   { path: "/portal/vault", icon: Vault, label: "Vault" },
   { path: "/portal/appointments", icon: CalendarDays, label: "Appointments" },
   { path: "/portal/esign", icon: FileSignature, label: "E-Sign" },
+  { path: "/portal/messages", icon: MessageSquareText, label: "Messages" },
   { path: "/portal/profile", icon: UserRound, label: "Profile" },
   { path: "/portal/chat", icon: BotMessageSquare, label: "Chat" },
   { path: "/portal/admin", icon: ShieldCheck, label: "Admin", staffOnly: true },
@@ -54,7 +55,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
     source.addEventListener("portal-update", (event) => {
       try {
         const data = JSON.parse((event as MessageEvent).data);
-        setUnreadMessages(Number(data.unreadMessages || 0));
+        setUnreadMessages(Number(data.unreadMessages || 0) + Number(data.unreadConversations || 0));
       } catch {}
     });
     source.onerror = () => {
@@ -209,6 +210,7 @@ function getBreadcrumb(pathname: string): string {
   if (pathname.startsWith("/portal/vault")) return "Portal > Secure Vault";
   if (pathname.startsWith("/portal/appointments")) return "Portal > Appointments";
   if (pathname.startsWith("/portal/esign")) return "Portal > E-Signature";
+  if (pathname.startsWith("/portal/messages")) return "Portal > Secure Messages";
   if (pathname.startsWith("/portal/profile")) return "Portal > Profile";
   if (pathname.startsWith("/portal/chat")) return "Portal > AI Concierge";
   if (pathname.startsWith("/portal/admin")) return "Portal > Staff Admin";
