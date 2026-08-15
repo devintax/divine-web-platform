@@ -3,6 +3,8 @@ import { getAuthSession } from "@/lib/auth-server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { loadCaseBundle, canReadCase } from "@/lib/case-records";
 import { DFGEmail } from "@/lib/email/dfg-email";
+import { createNotification } from "@/lib/notifications";
+import { sendSms } from "@/lib/sms";
 import { signalWorkflow } from "@/lib/temporal";
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -43,8 +45,26 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   });
 
   try { await signalWorkflow(`${bundle.enrollment.service_type}-${id}`, "clientApprovedSignal", { deliverableId }); } catch {}
+  if (bundle.assignedStaff?.id) {
+    await createNotification({
+      userId: bundle.assignedStaff.id,
+      title: "Client approved deliverable",
+      body: `${bundle.client?.legal_name || "A client"} approved a ${bundle.enrollment.service_type} deliverable.`,
+      type: "review",
+      href: `/portal/admin/${bundle.enrollment.service_type}`,
+      relatedResourceType: "deliverable",
+      relatedResourceId: deliverableId,
+    });
+  }
   if (bundle.assignedStaff?.email) {
     await DFGEmail.newMessage(bundle.assignedStaff.email, bundle.assignedStaff.legal_name, bundle.enrollment.service_type, bundle.assignedStaff.id);
+  }
+  if (bundle.assignedStaff?.phone) {
+    await sendSms(
+      bundle.assignedStaff.phone,
+      `Divine Financial Group: ${bundle.client?.legal_name || "A client"} approved a ${bundle.enrollment.service_type} deliverable.`,
+      { relatedResourceType: "deliverable", relatedResourceId: deliverableId, preference: "sms_on_update", preferenceUserId: bundle.assignedStaff.id },
+    );
   }
   return NextResponse.json({ success: true });
 }

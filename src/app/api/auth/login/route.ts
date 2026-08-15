@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { DFGEmail } from "@/lib/email/dfg-email";
+import { createEmailVerification } from "@/lib/email-verification";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { createTwoFactorChallenge, sendTwoFactorCode } from "@/lib/two-factor";
 import { createSessionToken, LEGACY_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from "@/lib/session-token";
 
@@ -15,6 +18,8 @@ export async function POST(req: NextRequest) {
     if (!normalizedEmail || !password) {
       return NextResponse.json({ error: "Email and password required" }, { status: 400 });
     }
+    const limit = checkRateLimit({ key: `login:${clientIp(req)}:${normalizedEmail}`, limit: 10, windowMs: 15 * 60 * 1000 });
+    if (!limit.allowed) return rateLimitResponse(limit.resetAt);
 
     let res: Response;
     try {
@@ -131,24 +136,18 @@ export async function POST(req: NextRequest) {
       profile = verifiedProfile;
     }
     if (profile && profile.email_verified === false) {
-      const verificationRes = await fetch(`${BASE}/api/auth/email/send-verification`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "apikey": KEY },
-        body: JSON.stringify({ email: normalizedEmail, redirectTo: `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/login` }),
-      }).catch((error) => {
-        console.error("[auth/login] verification resend failed:", error);
-        return null;
-      });
-
-      if (verificationRes && !verificationRes.ok) {
-        const verificationError = await verificationRes.json().catch(() => ({}));
-        console.error("[auth/login] verification resend rejected:", verificationError);
-      }
+      const { token } = await createEmailVerification(userId);
+      const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/verify-email?token=${encodeURIComponent(token)}`;
+      const verification = await DFGEmail.emailVerification(profile.email || normalizedEmail, profile.legal_name, verifyUrl);
+      if (!verification.sent && !verification.skipped) console.error("[auth/login] DFG verification resend failed:", verification.error);
 
       return NextResponse.json(
         {
-          error: "Please verify your email before signing in. We sent a verification code to your inbox.",
+          error: verification.sent
+            ? "Please verify your email before signing in. We sent a verification link to your inbox."
+            : "Please verify your email before signing in. We could not send the verification email; please contact support.",
           requiresEmailVerification: true,
+          emailSent: verification.sent,
           email: profile.email || normalizedEmail,
         },
         { status: 403 },

@@ -1,6 +1,6 @@
 "use client";
 
-import { Megaphone, MessageSquarePlus, Search, Send, UsersRound } from "lucide-react";
+import { Megaphone, MessageSquarePlus, Plus, Search, Send, ShieldCheck, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -170,13 +170,24 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
         </div>
       )}
 
-      {staffMode && showComposer && <ConversationComposer onCreated={(id) => { setShowComposer(false); setActiveId(id); void loadConversations(false); }} />}
+      {showComposer && <ConversationComposer staffMode={staffMode} onCreated={(id) => { setShowComposer(false); setActiveId(id); void loadConversations(false); }} />}
 
       <div className="grid min-h-[620px] overflow-hidden rounded-2xl border border-border bg-white lg:grid-cols-[310px_1fr]">
         <aside className="border-b border-border lg:border-b-0 lg:border-r">
-          <div className="border-b border-border px-4 py-3">
-            <div className="text-sm font-black text-ink">Inbox</div>
-            <div className="text-xs text-muted">{conversations.length} conversation{conversations.length === 1 ? "" : "s"}</div>
+          <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+            <div>
+              <div className="text-sm font-black text-ink">Inbox</div>
+              <div className="text-xs text-muted">{conversations.length} conversation{conversations.length === 1 ? "" : "s"}</div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowComposer((value) => !value)}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl bg-[#0B4DA2] text-white hover:bg-[#083a7a]"
+              aria-label="Start a new secure conversation"
+              title="New conversation"
+            >
+              <Plus size={17} />
+            </button>
           </div>
           <div className="max-h-[260px] overflow-y-auto lg:max-h-[560px]">
             {loading ? (
@@ -235,7 +246,11 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
               </div>
               <div ref={scrollRef} className="flex-1 space-y-3 overflow-y-auto bg-soft p-4">
                 {messages.length === 0 ? (
-                  <div className="py-12 text-center text-sm text-muted">No messages in this thread yet.</div>
+                  <div className="py-12 text-center">
+                    <MessageSquarePlus className="mx-auto h-9 w-9 text-muted" />
+                    <div className="mt-3 text-sm font-black text-ink">No messages in this thread yet.</div>
+                    <div className="mt-1 text-sm text-muted">Use the secure reply box below to send the first message.</div>
+                  </div>
                 ) : messages.map((message) => {
                   const mine = message.sender_id === currentUserId;
                   return (
@@ -249,7 +264,7 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
                   );
                 })}
               </div>
-              <form onSubmit={sendMessage} className="flex gap-2 border-t border-border bg-white p-3">
+              <form onSubmit={sendMessage} className="sticky bottom-0 flex flex-shrink-0 gap-2 border-t border-border bg-white p-3 shadow-[0_-8px_20px_rgba(15,23,42,0.04)]">
                 <textarea
                   value={input}
                   onChange={(event) => setInput(event.target.value)}
@@ -259,7 +274,7 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
                       void sendMessage(event);
                     }
                   }}
-                  placeholder="Write a secure message..."
+                  placeholder="Write a secure message to this thread..."
                   rows={1}
                   className="min-h-11 flex-1 resize-none rounded-xl border border-border px-4 py-3 text-sm focus:border-[#0B4DA2] focus:outline-none"
                 />
@@ -277,8 +292,16 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
             <div className="grid flex-1 place-items-center p-8 text-center">
               <div>
                 <MessageSquarePlus className="mx-auto h-10 w-10 text-muted" />
-                <div className="mt-3 text-sm font-black text-ink">Select a conversation</div>
-                <div className="mt-1 text-sm text-muted">Messages outside case work will appear here.</div>
+                <div className="mt-3 text-sm font-black text-ink">Select or start a conversation</div>
+                <div className="mt-1 text-sm text-muted">Secure human messages with Divine Financial Group staff appear here.</div>
+                <button
+                  type="button"
+                  onClick={() => setShowComposer(true)}
+                  className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-[#0B4DA2] px-4 py-3 text-sm font-black text-white hover:bg-[#083a7a]"
+                >
+                  <Plus size={16} />
+                  New Conversation
+                </button>
               </div>
             </div>
           )}
@@ -288,7 +311,7 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
   );
 }
 
-function ConversationComposer({ onCreated }: { onCreated: (id: string) => void }) {
+function ConversationComposer({ staffMode, onCreated }: { staffMode: boolean; onCreated: (id: string) => void }) {
   const [mode, setMode] = useState<"direct" | "group" | "broadcast">("direct");
   const [query, setQuery] = useState("");
   const [recipients, setRecipients] = useState<Profile[]>([]);
@@ -348,7 +371,18 @@ function ConversationComposer({ onCreated }: { onCreated: (id: string) => void }
 
   return (
     <form onSubmit={submit} className="rounded-2xl border border-border bg-white p-4 shadow-sm">
-      <div className="flex flex-wrap gap-2">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="text-sm font-black text-ink">{staffMode ? "New Conversation" : "Message DFG Support"}</div>
+          <div className="mt-1 text-xs text-muted">{staffMode ? "Start a direct thread, group thread, or admin broadcast." : "Start a secure direct thread with the support team."}</div>
+        </div>
+        <span className="inline-flex items-center gap-1 rounded-full bg-green-50 px-2 py-1 text-[10px] font-black uppercase text-green-700">
+          <ShieldCheck size={12} />
+          Secure
+        </span>
+      </div>
+      {staffMode && (
+      <div className="mt-4 flex flex-wrap gap-2">
         {(["direct", "group", "broadcast"] as const).map((item) => (
           <button
             key={item}
@@ -360,6 +394,7 @@ function ConversationComposer({ onCreated }: { onCreated: (id: string) => void }
           </button>
         ))}
       </div>
+      )}
 
       <div className="mt-4 grid gap-3 lg:grid-cols-2">
         {mode !== "direct" && (

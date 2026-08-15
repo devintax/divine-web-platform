@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Btn, Card, SecureUploadZone } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
+import { classifyDocument } from "@/lib/ai/document-classifier";
 
 export default function VaultPage() {
   const [files, setFiles] = useState<any[]>([]);
@@ -47,13 +48,15 @@ export default function VaultPage() {
   async function uploadFiles(toUpload: File[]) {
     for (const file of toUpload) {
       try {
+        const classification = await classifyDocument(file);
         const fd = new FormData();
         fd.append("file", file);
-        fd.append("category", "general");
+        fd.append("category", classification.category);
+        fd.append("aiClassification", JSON.stringify(classification));
         const res = await fetch("/api/vault/upload", { method: "POST", body: fd, credentials: "include" });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || "Upload failed");
-        toast.success(`${file.name} uploaded — scanning…`);
+        toast.success(`${file.name} uploaded as ${classification.label} (${Math.round(classification.confidence * 100)}%)`);
       } catch (e: any) { toast.error(e.message); }
     }
     loadAll();

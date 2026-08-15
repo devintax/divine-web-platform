@@ -57,7 +57,6 @@ export function canStartStaffConversation(role: UserRole) {
 }
 
 export async function listConversationRecipients(session: ConversationSession, search: string) {
-  if (!canStartStaffConversation(session.role)) return [];
   const term = search.trim();
   const admin = getSupabaseAdmin();
   let query = admin
@@ -66,6 +65,12 @@ export async function listConversationRecipients(session: ConversationSession, s
     .neq("id", session.profileId)
     .order("legal_name", { ascending: true })
     .limit(40);
+
+  if (session.role === "client") {
+    query = query.in("role", ["support", "manager", "super_admin"]);
+  } else if (!canStartStaffConversation(session.role)) {
+    return [];
+  }
 
   if (term) {
     query = query.or(`legal_name.ilike.%${term}%,email.ilike.%${term}%`);

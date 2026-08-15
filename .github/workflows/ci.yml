@@ -38,7 +38,11 @@ jobs:
           NEXT_PUBLIC_INSFORGE_ANON_KEY=ci-placeholder
           INSFORGE_URL=http://localhost:7130
           INSFORGE_ANON_KEY=ci-placeholder
+          INSFORGE_SERVICE_KEY=ci-placeholder
           INSFORGE_SERVICE_ROLE_KEY=ci-placeholder
+          SESSION_SECRET=ci-placeholder-session-secret-with-at-least-32-characters
+          AUTH_SECRET=ci-placeholder-auth-secret-with-at-least-32-characters
+          AI_ENABLED=false
           TEMPORAL_ADDRESS=localhost:7233
           TEMPORAL_NAMESPACE=divine-financial
           RESEND_API_KEY=re_placeholder

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Send } from "lucide-react";
+import { BotMessageSquare, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Card } from "@/components/ui";
 import { useToast } from "@/components/ui/Toast";
@@ -98,12 +98,24 @@ export default function ChatPage() {
 
   return (
     <div className="flex flex-col h-[calc(100dvh-9rem)] md:h-[calc(100dvh-3rem)] -mx-4 md:-mx-0 md:max-w-3xl md:mx-auto">
+      <div className="mx-4 mb-3 rounded-2xl border border-blue-100 bg-blue-50 p-4 md:mx-0">
+        <div className="flex items-start gap-3">
+          <BotMessageSquare className="mt-0.5 h-5 w-5 text-[#0B4DA2]" />
+          <div className="flex-1">
+            <div className="text-sm font-black text-ink">Divine AI Assistant</div>
+            <p className="mt-1 text-xs leading-relaxed text-muted">Use this rule-based assistant for quick guidance. For direct human help from DFG staff, use Secure Messages.</p>
+          </div>
+          <Link href="/portal/messages" className="hidden rounded-xl bg-white px-3 py-2 text-xs font-black text-[#0B4DA2] hover:bg-blue-100 sm:inline-flex">
+            Secure Messages
+          </Link>
+        </div>
+      </div>
       <Card className="flex flex-col flex-1 overflow-hidden !p-0 mx-4 md:mx-0">
         <div className="px-4 py-3 border-b border-border flex items-center gap-2 bg-white">
           <div className="w-8 h-8 rounded-full bg-[#0B4DA2] text-white grid place-items-center text-sm font-black">D</div>
           <div className="flex-1">
-            <div className="text-sm font-black text-ink">Divine Assistant</div>
-            <div className="text-[10px] text-green-700 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Online</div>
+            <div className="text-sm font-black text-ink">Divine AI Assistant</div>
+            <div className="text-[10px] text-green-700 flex items-center gap-1"><span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Automated concierge</div>
           </div>
         </div>
 

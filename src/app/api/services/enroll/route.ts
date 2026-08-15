@@ -4,6 +4,7 @@ import { getSupabaseAdmin } from "@/lib/supabase-admin";
 import { startEnrollmentWorkflow } from "@/lib/enrollment-workflow";
 import { DFGEmail } from "@/lib/email/dfg-email";
 import { calculateSlaDeadline, isServiceType, priorityForService, SERVICE_WORKFLOW } from "@/lib/service-workflow";
+import { summarizeIntake } from "@/lib/ai/dfg-ai";
 
 const VALID = ["tax","bookkeeping","formation","insurance","notary"];
 
@@ -104,20 +105,30 @@ export async function POST(req: NextRequest) {
       enrollmentId = newEnr?.id;
     }
     if (enrollmentId) {
+      const aiSummary = await summarizeIntake({
+        serviceType,
+        intakeData: intakeData || {},
+        clientName: session.legalName,
+      });
+      if (aiSummary.text) {
+        await admin
+          .from("service_enrollments")
+          .update({
+            internal_notes: `AI Intake Summary: ${aiSummary.text}`,
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", enrollmentId);
+      }
       await ensureCaseLifecycle(enrollmentId, serviceType, session.profileId);
       if (!workflowId) {
-        try {
-          workflowId = await startEnrollmentWorkflow({
-            enrollmentId,
-            userId: session.profileId,
-            serviceType,
-            payload: { clientEmail: session.email, clientName: session.legalName, intakeData },
-          });
-          workflowStarted = true;
-          await admin.from("service_enrollments").update({ workflow_id: workflowId }).eq("id", enrollmentId);
-        } catch (error) {
-          console.warn("[services/enroll] workflow start failed; case remains queued", error);
-        }
+        workflowId = await startEnrollmentWorkflowWithRetry({
+          enrollmentId,
+          userId: session.profileId,
+          serviceType,
+          payload: { clientEmail: session.email, clientName: session.legalName, intakeData },
+        });
+        workflowStarted = Boolean(workflowId);
+        if (workflowId) await admin.from("service_enrollments").update({ workflow_id: workflowId }).eq("id", enrollmentId);
       }
       await DFGEmail.intakeConfirmation(session.email, session.legalName, workflow.label, enrollmentId, session.profileId);
     }
@@ -128,6 +139,21 @@ export async function POST(req: NextRequest) {
   else await admin.from("service_enrollments").insert({ user_id: session.profileId, service_type: serviceType, status: "draft", progress, intake_data: intakeData });
 
   return NextResponse.json({ success: true, status: "draft_saved" });
+}
+
+async function startEnrollmentWorkflowWithRetry(input: Parameters<typeof startEnrollmentWorkflow>[0]) {
+  let lastError: unknown = null;
+  for (let attempt = 1; attempt <= 3; attempt += 1) {
+    try {
+      return await startEnrollmentWorkflow(input);
+    } catch (error) {
+      lastError = error;
+      console.warn(`[services/enroll] workflow start attempt ${attempt} failed`, error);
+      if (attempt < 3) await new Promise((resolve) => setTimeout(resolve, attempt * 300));
+    }
+  }
+  console.warn("[services/enroll] workflow start failed after retries; case remains queued", lastError);
+  return null;
 }
 
 async function ensureCaseLifecycle(enrollmentId: string, serviceType: keyof typeof SERVICE_WORKFLOW, userId: string) {

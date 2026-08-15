@@ -2,11 +2,10 @@ import { createClient } from "@insforge/sdk";
 
 const INSFORGE_URL = process.env.NEXT_PUBLIC_INSFORGE_URL!;
 const ANON_KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY!;
-const SERVER_KEY = process.env.INSFORGE_SERVICE_KEY || ANON_KEY;
 
 const insforgeServer = createClient({
   baseUrl: INSFORGE_URL,
-  anonKey: SERVER_KEY,
+  anonKey: ANON_KEY,
   isServerMode: true,
 });
 

@@ -203,6 +203,7 @@ function DocumentsTab({ selected, reload }: { selected: any; reload: () => void 
         intakeData={selected.enrollment.intake_data || {}}
         submittedAt={selected.enrollment.created_at}
         clientName={selected.client?.legal_name || selected.client?.email || "Client"}
+        aiSummary={selected.enrollment.internal_notes}
       />
       <ServiceActionPanel selected={selected} reload={reload} />
       <div>

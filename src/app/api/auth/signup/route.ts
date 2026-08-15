@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@insforge/sdk";
 import { DFGEmail } from "@/lib/email/dfg-email";
 import { createEmailVerification } from "@/lib/email-verification";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
 
 const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
@@ -10,6 +11,9 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function POST(req: NextRequest) {
   try {
+    const limit = checkRateLimit({ key: `signup:${clientIp(req)}`, limit: 5, windowMs: 60 * 60 * 1000 });
+    if (!limit.allowed) return rateLimitResponse(limit.resetAt);
+
     const { email, password, name, legalName } = await req.json();
     const normalizedEmail = String(email || "").trim().toLowerCase();
     const displayName = String(name || legalName || normalizedEmail.split("@")[0]).trim();
@@ -62,26 +66,11 @@ export async function POST(req: NextRequest) {
       sms_on_update: false,
     });
 
-    await createEmailVerification(userId);
-
-    const verification = await insforge.auth.resendVerificationEmail({
-      email: normalizedEmail,
-      redirectTo: `${APP_URL}/login`,
-    });
-
-    if (verification.error) {
-      console.error("[auth/signup] verification email failed", verification.error);
-      return NextResponse.json(
-        {
-          error: "Account created, but the verification email could not be sent. Please contact support or request a new verification code.",
-          accountCreated: true,
-          requiresEmailVerification: true,
-          email: normalizedEmail,
-          userId,
-          profileId: profile?.id,
-        },
-        { status: verification.error.statusCode || 502 },
-      );
+    const { token } = await createEmailVerification(userId);
+    const verifyUrl = `${APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
+    const verification = await DFGEmail.emailVerification(normalizedEmail, displayName, verifyUrl);
+    if (!verification.sent && !verification.skipped) {
+      console.error("[auth/signup] DFG verification email failed", verification.error);
     }
 
     const welcome = await DFGEmail.welcome(normalizedEmail, displayName);
@@ -92,10 +81,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       success: true,
       requiresEmailVerification: true,
+      emailSent: verification.sent,
+      emailWarning: verification.sent ? null : "Account created. Email delivery is delayed; contact support if the verification email does not arrive.",
       email: normalizedEmail,
       userId,
       profileId: profile?.id,
-      message: verification.data?.message || "Account created. Please verify your email before signing in.",
+      message: "Account created. Please verify your email before signing in.",
     }, { status: 201 });
   } catch (e: any) {
     return NextResponse.json({ error: e.message || "Signup failed" }, { status: 500 });

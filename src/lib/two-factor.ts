@@ -14,7 +14,9 @@ type ChallengePayload = {
 };
 
 function secret() {
-  return process.env.AUTH_SECRET || process.env.INSFORGE_SERVICE_KEY || process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || "dfg-dev-secret";
+  const value = process.env.SESSION_SECRET || process.env.AUTH_SECRET;
+  if (!value) throw new Error("SESSION_SECRET or AUTH_SECRET is required for two-factor challenges");
+  return value;
 }
 
 function sign(value: string) {

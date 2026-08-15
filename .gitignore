@@ -45,4 +45,5 @@ next-env.d.ts
 # InsForge local credentials (never commit)
 .insforge-local-config.txt
 .super-admin-credentials.txt
+.auth-repair-credentials.txt
 .auto-doc/

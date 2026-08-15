@@ -95,6 +95,12 @@ export default function AppointmentsPage() {
       },
     });
 
+    const timeout = window.setTimeout(() => {
+      if (!container.querySelector("iframe")) {
+        setEmbedError("The scheduler is taking too long to load. You can open it directly in a new tab.");
+      }
+    }, 12000);
+
     if (!cal.loaded) {
       const script = document.createElement("script");
       script.src = calEmbedLibUrl;
@@ -105,7 +111,10 @@ export default function AppointmentsPage() {
       cal.loaded = true;
     }
 
-    return () => observer.disconnect();
+    return () => {
+      window.clearTimeout(timeout);
+      observer.disconnect();
+    };
   }, [calConfig]);
 
   return (

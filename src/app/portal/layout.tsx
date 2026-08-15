@@ -19,7 +19,7 @@ const ALL_NAV = [
   { path: "/portal/esign", icon: FileSignature, label: "E-Sign" },
   { path: "/portal/messages", icon: MessageSquareText, label: "Messages" },
   { path: "/portal/profile", icon: UserRound, label: "Profile" },
-  { path: "/portal/chat", icon: BotMessageSquare, label: "Chat" },
+  { path: "/portal/chat", icon: BotMessageSquare, label: "AI Assistant" },
   { path: "/portal/admin", icon: ShieldCheck, label: "Admin", staffOnly: true },
 ];
 

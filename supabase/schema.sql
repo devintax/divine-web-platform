@@ -386,6 +386,24 @@ CREATE TABLE IF NOT EXISTS callback_queue (
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS bookkeeping_transactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  enrollment_id UUID REFERENCES service_enrollments(id) ON DELETE CASCADE,
+  user_id UUID REFERENCES user_profiles(id) ON DELETE CASCADE,
+  transaction_date DATE,
+  description TEXT NOT NULL DEFAULT '',
+  amount DECIMAL(12,2) DEFAULT 0,
+  category VARCHAR(120),
+  status VARCHAR(50) DEFAULT 'Needs review',
+  source VARCHAR(50) DEFAULT 'staff_entry',
+  created_by UUID REFERENCES user_profiles(id),
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bookkeeping_transactions_enrollment ON bookkeeping_transactions(enrollment_id, transaction_date DESC);
+CREATE INDEX IF NOT EXISTS idx_bookkeeping_transactions_user ON bookkeeping_transactions(user_id, transaction_date DESC);
+
 -- Row Level Security Policies
 ALTER TABLE user_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE service_enrollments ENABLE ROW LEVEL SECURITY;
@@ -412,6 +430,7 @@ ALTER TABLE conversation_participants ENABLE ROW LEVEL SECURITY;
 ALTER TABLE conversation_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE broadcast_targets ENABLE ROW LEVEL SECURITY;
 ALTER TABLE callback_queue ENABLE ROW LEVEL SECURITY;
+ALTER TABLE bookkeeping_transactions ENABLE ROW LEVEL SECURITY;
 
 -- Audit logs are append-only. Application roles may insert/select through
 -- controlled APIs, but no runtime role should be able to delete audit events.

@@ -19,10 +19,27 @@ export async function GET() {
 
   if (error || !data) return NextResponse.json({ enrollment: null, transactions: [], reports: [] });
   const intake = ((data as any).intake_data || {}) as any;
+  const { data: transactionRows, error: transactionError } = await admin
+    .from("bookkeeping_transactions")
+    .select("id,transaction_date,description,amount,category,status")
+    .eq("enrollment_id", (data as any).id)
+    .eq("user_id", session.profileId)
+    .order("transaction_date", { ascending: false });
+
   return NextResponse.json({
     enrollment: data,
-    transactions: intake.transactions || [],
+    transactions: !transactionError
+      ? (transactionRows || []).map((row: any) => ({
+          id: row.id,
+          date: row.transaction_date || "",
+          description: row.description || "",
+          amount: row.amount == null ? "" : String(row.amount),
+          category: row.category || "",
+          status: row.status || "Needs review",
+        }))
+      : intake.transactions || [],
     reports: intake.reports || [],
+    tableBacked: !transactionError,
   });
 }
 
@@ -46,6 +63,32 @@ export async function PATCH(req: NextRequest) {
   const intake = ((enrollment as any).intake_data || {}) as any;
   const transactions = Array.isArray(body.transactions) ? body.transactions.slice(0, 500) : intake.transactions || [];
   const reports = Array.isArray(body.reports) ? body.reports.slice(0, 100) : intake.reports || [];
+
+  const { error: transactionDeleteError } = await admin
+    .from("bookkeeping_transactions")
+    .delete()
+    .eq("enrollment_id", (enrollment as any).id)
+    .eq("user_id", session.profileId);
+
+  if (!transactionDeleteError && transactions.length) {
+    const { error: transactionInsertError } = await admin.from("bookkeeping_transactions").insert(
+      transactions.map((row: any) => ({
+        enrollment_id: (enrollment as any).id,
+        user_id: session.profileId,
+        transaction_date: row.date || null,
+        description: String(row.description || ""),
+        amount: Number(String(row.amount || "0").replace(/[^0-9.-]/g, "")) || 0,
+        category: String(row.category || ""),
+        status: String(row.status || "Needs review"),
+        source: "staff_entry",
+      })),
+    );
+    if (transactionInsertError) {
+      console.warn("[portal/bookkeeping] transaction table insert failed; preserving intake_data fallback", transactionInsertError);
+    }
+  } else if (transactionDeleteError) {
+    console.warn("[portal/bookkeeping] transaction table unavailable; using intake_data fallback", transactionDeleteError);
+  }
 
   const { error } = await admin
     .from("service_enrollments")

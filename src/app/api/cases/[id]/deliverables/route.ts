@@ -90,6 +90,13 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       relatedResourceType: "deliverable",
       relatedResourceId: deliverable.id,
     });
+    if (bundle.client?.phone) {
+      await sendSms(
+        bundle.client.phone,
+        `Divine Financial Group: ${title} is ready for your review and approval. Sign in to your portal to review it.`,
+        { relatedResourceType: "deliverable", relatedResourceId: deliverable.id, sentBy: session.profileId, preference: "sms_on_update", preferenceUserId: bundle.enrollment.user_id },
+      );
+    }
   } else {
     await DFGEmail.caseCompleted(bundle.client?.email, bundle.client?.legal_name, SERVICE_WORKFLOW[serviceType].label, bundle.enrollment.user_id);
     await createNotification({

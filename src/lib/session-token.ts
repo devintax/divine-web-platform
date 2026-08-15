@@ -16,11 +16,9 @@ type SessionPayload = {
 function secret() {
   const value =
     process.env.SESSION_SECRET ||
-    process.env.AUTH_SECRET ||
-    process.env.INSFORGE_SERVICE_KEY ||
-    process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY;
+    process.env.AUTH_SECRET;
 
-  if (!value) throw new Error("SESSION_SECRET is required for signed sessions");
+  if (!value) throw new Error("SESSION_SECRET or AUTH_SECRET is required for signed sessions");
   return value;
 }
 

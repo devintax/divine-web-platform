@@ -5,6 +5,7 @@ type IntakeSummaryProps = {
   intakeData?: Record<string, unknown> | null;
   submittedAt?: string;
   clientName?: string;
+  aiSummary?: string | null;
 };
 
 const FIELD_LABELS: Record<string, Record<string, string>> = {
@@ -106,8 +107,9 @@ function formatValue(key: string, value: unknown): string {
   return String(value);
 }
 
-export default function IntakeSummary({ serviceType, intakeData, submittedAt, clientName }: IntakeSummaryProps) {
+export default function IntakeSummary({ serviceType, intakeData, submittedAt, clientName, aiSummary }: IntakeSummaryProps) {
   const config = SERVICE_CONFIG[serviceType] || { color: "#0B4DA2", label: serviceType };
+  const cleanSummary = aiSummary?.replace(/^AI Intake Summary:\s*/i, "").trim();
   const fields = Object.entries(intakeData || {})
     .filter(([key]) => !SKIP_KEYS.has(key))
     .map(([key, value]) => ({ key, label: labelFor(serviceType, key), value: formatValue(key, value) }))
@@ -125,6 +127,13 @@ export default function IntakeSummary({ serviceType, intakeData, submittedAt, cl
         </div>
         <span className="text-xs text-white font-bold px-2 py-1 rounded-full bg-white/20">{fields.length} fields</span>
       </div>
+
+      {cleanSummary && (
+        <div className="px-4 py-3 bg-blue-50 border-b border-blue-100">
+          <p className="text-[11px] font-black uppercase tracking-wide text-[#0B4DA2]">AI staff summary</p>
+          <p className="text-sm text-ink mt-1 leading-relaxed">{cleanSummary}</p>
+        </div>
+      )}
 
       {fields.length === 0 ? (
         <div className="p-4 text-sm text-muted">No intake answers were saved for this case.</div>

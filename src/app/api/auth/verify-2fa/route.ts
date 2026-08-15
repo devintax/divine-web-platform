@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { verifyTwoFactorChallenge } from "@/lib/two-factor";
 import { createSessionToken, LEGACY_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from "@/lib/session-token";
 
 const SESSION_COOKIE = SESSION_COOKIE_OPTIONS;
 
 export async function POST(req: NextRequest) {
+  const limit = checkRateLimit({ key: `verify-2fa:${clientIp(req)}`, limit: 8, windowMs: 15 * 60 * 1000 });
+  if (!limit.allowed) return rateLimitResponse(limit.resetAt);
+
   const { code } = await req.json().catch(() => ({}));
   const challenge = req.cookies.get("d_2fa_challenge")?.value;
   const payload = verifyTwoFactorChallenge(challenge, String(code || "").trim());

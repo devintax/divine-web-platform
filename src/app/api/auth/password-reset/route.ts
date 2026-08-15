@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@insforge/sdk";
+import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 export const runtime = "nodejs";
 
@@ -22,6 +23,8 @@ export async function POST(req: NextRequest) {
   if (!normalizedEmail) {
     return NextResponse.json({ error: "Email is required" }, { status: 400 });
   }
+  const limit = checkRateLimit({ key: `password-reset:${clientIp(req)}:${normalizedEmail}`, limit: 3, windowMs: 60 * 60 * 1000 });
+  if (!limit.allowed) return rateLimitResponse(limit.resetAt);
 
   const { data, error } = await authClient().auth.sendResetPasswordEmail({
     email: normalizedEmail,
@@ -47,6 +50,9 @@ export async function PUT(req: NextRequest) {
   let resetToken = String(token || "").trim();
   const resetCode = String(code || "").replace(/\D/g, "");
   const newPassword = String(password || "");
+  const resetIdentity = email ? String(email).trim().toLowerCase() : resetToken.slice(0, 12);
+  const limit = checkRateLimit({ key: `password-reset-confirm:${clientIp(req)}:${resetIdentity}`, limit: 5, windowMs: 60 * 60 * 1000 });
+  if (!limit.allowed) return rateLimitResponse(limit.resetAt);
 
   if (!resetToken && email && resetCode) {
     const exchange = await authClient().auth.exchangeResetPasswordToken({

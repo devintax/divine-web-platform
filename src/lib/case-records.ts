@@ -19,7 +19,7 @@ export async function loadCaseBundle(enrollmentId: string): Promise<CaseBundle |
   const staffId = (enrollment as any).assigned_staff_id || (enrollment as any).assigned_to;
   const [client, assignedStaff, messages, missingDocuments, deliverables, checklist, linkedDocuments, serviceDocuments] = await Promise.all([
     admin.from("user_profiles").select("id,legal_name,email,phone,role").eq("id", (enrollment as any).user_id).single(),
-    staffId ? admin.from("user_profiles").select("id,legal_name,email,role").eq("id", staffId).single() : Promise.resolve({ data: null }),
+    staffId ? admin.from("user_profiles").select("id,legal_name,email,phone,role").eq("id", staffId).single() : Promise.resolve({ data: null }),
     admin.from("case_messages").select("*").eq("enrollment_id", enrollmentId).order("created_at", { ascending: true }),
     admin.from("missing_documents").select("*").eq("enrollment_id", enrollmentId).order("created_at", { ascending: false }),
     admin.from("case_deliverables").select("*").eq("enrollment_id", enrollmentId).order("created_at", { ascending: false }),
