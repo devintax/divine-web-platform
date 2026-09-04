@@ -1,0 +1,186 @@
+services:
+  dfg-web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+        NEXT_PUBLIC_INSFORGE_URL: ${NEXT_PUBLIC_INSFORGE_URL}
+        NEXT_PUBLIC_INSFORGE_ANON_KEY: ${NEXT_PUBLIC_INSFORGE_ANON_KEY}
+        NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+        NEXT_PUBLIC_CAL_COM_URL: ${NEXT_PUBLIC_CAL_COM_URL}
+        NEXT_PUBLIC_DOCUSEAL_URL: ${NEXT_PUBLIC_DOCUSEAL_URL}
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      NEXT_PUBLIC_INSFORGE_URL: ${NEXT_PUBLIC_INSFORGE_URL}
+      NEXT_PUBLIC_INSFORGE_ANON_KEY: ${NEXT_PUBLIC_INSFORGE_ANON_KEY}
+      NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY: ${NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY}
+      NEXT_PUBLIC_CAL_COM_URL: ${NEXT_PUBLIC_CAL_COM_URL}
+      NEXT_PUBLIC_DOCUSEAL_URL: ${NEXT_PUBLIC_DOCUSEAL_URL}
+      INSFORGE_URL: ${INSFORGE_URL}
+      INSFORGE_ANON_KEY: ${INSFORGE_ANON_KEY}
+      INSFORGE_SERVICE_KEY: ${INSFORGE_SERVICE_KEY}
+      SESSION_SECRET: ${SESSION_SECRET}
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_BASE_URL: ${AI_BASE_URL}
+      AI_MODEL: ${AI_MODEL}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-15000}
+      CF_ACCESS_CLIENT_ID: ${CF_ACCESS_CLIENT_ID}
+      CF_ACCESS_CLIENT_SECRET: ${CF_ACCESS_CLIENT_SECRET}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL}
+      DOGRAH_BASE_URL: ${DOGRAH_BASE_URL}
+      DOGRAH_API_KEY: ${DOGRAH_API_KEY}
+      DOGRAH_AGENT_ID: ${DOGRAH_AGENT_ID}
+      DOGRAH_TRIGGER_NODE_ID: ${DOGRAH_TRIGGER_NODE_ID}
+      DOGRAH_TRIGGER_MODE: ${DOGRAH_TRIGGER_MODE:-production}
+      DOGRAH_TELEPHONY_CONFIG_ID: ${DOGRAH_TELEPHONY_CONFIG_ID}
+      DOGRAH_WEBHOOK_SECRET: ${DOGRAH_WEBHOOK_SECRET}
+      TELNYX_API_KEY: ${TELNYX_API_KEY}
+      TELNYX_PUBLIC_KEY: ${TELNYX_PUBLIC_KEY}
+      TELNYX_APP_ID: ${TELNYX_APP_ID}
+      TELNYX_AI_ASSISTANT_ID: ${TELNYX_AI_ASSISTANT_ID}
+      TELNYX_PHONE_NUMBER: ${TELNYX_PHONE_NUMBER}
+      DFG_PHONE_NUMBER: ${DFG_PHONE_NUMBER}
+      SMS_PROVIDER: ${SMS_PROVIDER:-textbee}
+      VENDEL_API_URL: ${VENDEL_API_URL}
+      VENDEL_API_KEY: ${VENDEL_API_KEY}
+      VENDEL_DEVICE_ID: ${VENDEL_DEVICE_ID}
+      TEXTBEE_API_URL: ${TEXTBEE_API_URL}
+      TEXTBEE_API_KEY: ${TEXTBEE_API_KEY}
+      TEXTBEE_DEVICE_ID: ${TEXTBEE_DEVICE_ID}
+      DOCUSEAL_URL: ${DOCUSEAL_URL}
+      DOCUSEAL_API_URL: ${DOCUSEAL_API_URL}
+      DOCUSEAL_API_KEY: ${DOCUSEAL_API_KEY}
+      DOCUSEAL_WEBHOOK_SECRET: ${DOCUSEAL_WEBHOOK_SECRET}
+      STIRLING_PDF_URL: ${STIRLING_PDF_URL}
+      STIRLING_PDF_API_KEY: ${STIRLING_PDF_API_KEY}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_SECURE: ${MAIL_SECURE:-false}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      TEMPORAL_ADDRESS: dfg-temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-divine-financial}
+      TEMPORAL_TASK_QUEUE_PREFIX: ${TEMPORAL_TASK_QUEUE_PREFIX:-dfg}
+      E2E_TEST_TOKEN: ${E2E_TEST_TOKEN}
+    depends_on:
+      dfg-temporal:
+        condition: service_started
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+
+  dfg-worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    environment:
+      NODE_ENV: production
+      INSFORGE_URL: ${INSFORGE_URL}
+      INSFORGE_ANON_KEY: ${INSFORGE_ANON_KEY}
+      INSFORGE_SERVICE_KEY: ${INSFORGE_SERVICE_KEY}
+      NEXT_PUBLIC_APP_URL: ${NEXT_PUBLIC_APP_URL}
+      SESSION_SECRET: ${SESSION_SECRET}
+      AI_ENABLED: ${AI_ENABLED:-true}
+      AI_BASE_URL: ${AI_BASE_URL}
+      AI_MODEL: ${AI_MODEL}
+      AI_TIMEOUT_MS: ${AI_TIMEOUT_MS:-15000}
+      CF_ACCESS_CLIENT_ID: ${CF_ACCESS_CLIENT_ID}
+      CF_ACCESS_CLIENT_SECRET: ${CF_ACCESS_CLIENT_SECRET}
+      LITELLM_MASTER_KEY: ${LITELLM_MASTER_KEY}
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      OPENROUTER_MODEL: ${OPENROUTER_MODEL}
+      TEXTBEE_API_URL: ${TEXTBEE_API_URL}
+      TEXTBEE_API_KEY: ${TEXTBEE_API_KEY}
+      TEXTBEE_DEVICE_ID: ${TEXTBEE_DEVICE_ID}
+      VENDEL_API_URL: ${VENDEL_API_URL}
+      VENDEL_API_KEY: ${VENDEL_API_KEY}
+      VENDEL_DEVICE_ID: ${VENDEL_DEVICE_ID}
+      DOGRAH_BASE_URL: ${DOGRAH_BASE_URL}
+      DOGRAH_API_KEY: ${DOGRAH_API_KEY}
+      DOCUSEAL_URL: ${DOCUSEAL_URL}
+      DOCUSEAL_API_URL: ${DOCUSEAL_API_URL}
+      DOCUSEAL_API_KEY: ${DOCUSEAL_API_KEY}
+      STIRLING_PDF_URL: ${STIRLING_PDF_URL}
+      STIRLING_PDF_API_KEY: ${STIRLING_PDF_API_KEY}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_SECURE: ${MAIL_SECURE:-false}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_PASS: ${MAIL_PASS}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_REPLY_TO: ${MAIL_REPLY_TO}
+      ADMIN_EMAIL: ${ADMIN_EMAIL}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET}
+      TEMPORAL_ADDRESS: dfg-temporal:7233
+      TEMPORAL_NAMESPACE: ${TEMPORAL_NAMESPACE:-divine-financial}
+      TEMPORAL_TASK_QUEUE_PREFIX: ${TEMPORAL_TASK_QUEUE_PREFIX:-dfg}
+    depends_on:
+      dfg-temporal:
+        condition: service_started
+    restart: unless-stopped
+
+  dfg-temporal:
+    image: temporalio/auto-setup:1.24
+    environment:
+      DB: postgres12
+      DB_PORT: 5432
+      POSTGRES_USER: temporal
+      POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-temporal}
+      POSTGRES_SEEDS: dfg-temporal-db
+      DYNAMIC_CONFIG_FILE_PATH: config/dynamicconfig/development-sql.yaml
+    depends_on:
+      dfg-temporal-db:
+        condition: service_healthy
+    ports:
+      - "7233:7233"
+    restart: unless-stopped
+
+  dfg-temporal-db:
+    image: postgres:14-alpine
+    environment:
+      POSTGRES_USER: temporal
+      POSTGRES_PASSWORD: ${TEMPORAL_DB_PASSWORD:-temporal}
+      POSTGRES_DB: temporal
+    volumes:
+      - dfg-temporal-postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U temporal -d temporal"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    restart: unless-stopped
+
+  dfg-temporal-ui:
+    image: temporalio/ui:2.26.2
+    environment:
+      TEMPORAL_ADDRESS: dfg-temporal:7233
+      TEMPORAL_CORS_ORIGINS: ${NEXT_PUBLIC_APP_URL}
+    depends_on:
+      dfg-temporal:
+        condition: service_started
+    ports:
+      - "8080:8080"
+    restart: unless-stopped
+
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${CLOUDFLARE_TUNNEL_TOKEN}
+    depends_on:
+      dfg-web:
+        condition: service_started
+    restart: unless-stopped
+
+volumes:
+  dfg-temporal-postgres:
