@@ -79,22 +79,8 @@ function LoginContent() {
 
   async function handleVerifyEmail(e: React.FormEvent) {
     e.preventDefault();
-    setError("");
-    setLoading(true);
-    try {
-      const res = await fetch("/api/auth/verify-email", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, code }),
-      });
-      const data = await res.json().catch(() => ({ error: "Verification service returned an unreadable response." }));
-      if (!res.ok) { setError(data.error || "Verification failed"); setLoading(false); return; }
-      router.push(redirect);
-      router.refresh();
-    } catch {
-      setError("An unexpected error occurred.");
-      setLoading(false);
-    }
+    setNeedsEmailVerification(false);
+    setCode("");
   }
 
   return (
@@ -113,13 +99,9 @@ function LoginContent() {
           {needsEmailVerification ? (
             <form onSubmit={handleVerifyEmail} className="flex flex-col gap-4">
               <div className="rounded-xl border border-blue-100 bg-blue-50 px-4 py-3 text-sm font-semibold text-[#0B4DA2]">
-                We sent a 6-digit verification code to {email}. Enter it below to activate your account.
+                We sent a secure verification link to {email}. Open that email and click Verify my email, then return here to sign in.
               </div>
-              <div><label className="text-xs font-bold text-muted block mb-1.5">Verification Code</label>
-                <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" required minLength={6}
-                  className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-center text-2xl font-black tracking-[0.35em] outline-none focus:border-[#0B4DA2] transition-colors" />
-              </div>
-              <Btn variant="primary" sz="lg" type="submit" disabled={loading || code.length !== 6} className="w-full">{loading ? "Verifying..." : "Verify Email & Sign In"}</Btn>
+              <Btn variant="primary" sz="lg" type="submit" className="w-full">Back to Sign In</Btn>
               <button type="button" onClick={() => { setNeedsEmailVerification(false); setCode(""); }} className="text-xs font-bold text-muted hover:text-[#0B4DA2]">
                 Use a different account
               </button>

@@ -5,6 +5,7 @@ import { createEmailVerification } from "@/lib/email-verification";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { createTwoFactorChallenge, sendTwoFactorCode } from "@/lib/two-factor";
 import { createSessionToken, LEGACY_SESSION_COOKIE_NAME, SESSION_COOKIE_NAME, SESSION_COOKIE_OPTIONS } from "@/lib/session-token";
+import { publicAppUrl } from "@/lib/app-url";
 
 const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
 const KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || "";
@@ -137,7 +138,7 @@ export async function POST(req: NextRequest) {
     }
     if (profile && profile.email_verified === false) {
       const { token } = await createEmailVerification(userId);
-      const verifyUrl = `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/verify-email?token=${encodeURIComponent(token)}`;
+      const verifyUrl = publicAppUrl(`/verify-email?token=${encodeURIComponent(token)}`);
       const verification = await DFGEmail.emailVerification(profile.email || normalizedEmail, profile.legal_name, verifyUrl);
       if (!verification.sent && !verification.skipped) console.error("[auth/login] DFG verification resend failed:", verification.error);
 

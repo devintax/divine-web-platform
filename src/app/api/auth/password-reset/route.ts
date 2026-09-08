@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@insforge/sdk";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { publicAppUrl } from "@/lib/app-url";
 
 export const runtime = "nodejs";
 
 const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
 const KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || process.env.INSFORGE_ANON_KEY || "";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 function authClient() {
   return createClient({
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
   const { data, error } = await authClient().auth.sendResetPasswordEmail({
     email: normalizedEmail,
-    redirectTo: `${APP_URL}/reset-password`,
+    redirectTo: publicAppUrl("/reset-password"),
   });
 
   if (error) {

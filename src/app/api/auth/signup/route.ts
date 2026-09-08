@@ -4,10 +4,10 @@ import { DFGEmail } from "@/lib/email/dfg-email";
 import { createEmailVerification } from "@/lib/email-verification";
 import { checkRateLimit, clientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { getSupabaseAdmin } from "@/lib/supabase-admin";
+import { publicAppUrl } from "@/lib/app-url";
 
 const BASE = process.env.NEXT_PUBLIC_INSFORGE_URL || process.env.INSFORGE_URL || "https://insforge.dfgworld.net";
 const KEY = process.env.NEXT_PUBLIC_INSFORGE_ANON_KEY || process.env.INSFORGE_ANON_KEY || "";
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,6 +31,7 @@ export async function POST(req: NextRequest) {
       email: normalizedEmail,
       password,
       name: displayName,
+      autoConfirm: true,
     });
     if (auth.error) {
       return NextResponse.json({ error: auth.error.message || "Signup failed" }, { status: auth.error.statusCode || 400 });
@@ -67,7 +68,7 @@ export async function POST(req: NextRequest) {
     });
 
     const { token } = await createEmailVerification(userId);
-    const verifyUrl = `${APP_URL}/verify-email?token=${encodeURIComponent(token)}`;
+    const verifyUrl = publicAppUrl(`/verify-email?token=${encodeURIComponent(token)}`);
     const verification = await DFGEmail.emailVerification(normalizedEmail, displayName, verifyUrl);
     if (!verification.sent && !verification.skipped) {
       console.error("[auth/signup] DFG verification email failed", verification.error);

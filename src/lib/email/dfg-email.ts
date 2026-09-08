@@ -1,8 +1,7 @@
 import "server-only";
 import nodemailer from "nodemailer";
+import { publicAppUrl } from "@/lib/app-url";
 import { allowsNotificationPreference, type NotificationPreferenceKey } from "@/lib/notification-preferences";
-
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
 
 type EmailResult = { sent: boolean; error?: string; skipped?: boolean };
 type EmailOptions = {
@@ -89,7 +88,7 @@ export const DFGEmail = {
         <p>Hi ${escapeHtml(name || "there")},</p>
         <p>We received your <strong>${escapeHtml(service)}</strong> request and routed it to the right specialist desk.</p>
         <p><strong>Reference:</strong> ${escapeHtml(referenceId)}</p>
-        ${button("View your order", `${APP_URL}/portal/orders`)}
+        ${button("View your order", publicAppUrl("/portal/orders"))}
       `),
       { preference: "email_on_update", userId },
     );
@@ -102,7 +101,7 @@ export const DFGEmail = {
       shell("Welcome to your secure client portal", `
         <p>Hi ${escapeHtml(name || "there")},</p>
         <p>Your Divine Financial Group portal account has been created. Once your email is verified, you can submit service requests, upload documents, message your specialist, and review completed work from your secure dashboard.</p>
-        ${button("Open the portal", `${APP_URL}/login`)}
+        ${button("Open the portal", publicAppUrl("/login"))}
       `),
       { bypassPreferences: true },
     );
@@ -143,7 +142,7 @@ export const DFGEmail = {
       shell("New specialist message", `
         <p>Hi ${escapeHtml(name || "there")},</p>
         <p>Your ${escapeHtml(service)} specialist sent you a message.</p>
-        ${button("Read and reply", `${APP_URL}/portal/orders`)}
+        ${button("Read and reply", publicAppUrl("/portal/orders"))}
       `),
       { preference: "email_on_message", userId },
     );
@@ -156,7 +155,7 @@ export const DFGEmail = {
       shell("Ready for review", `
         <p>Hi ${escapeHtml(name || "there")},</p>
         <p><strong>${escapeHtml(title)}</strong> is ready for your review and approval.</p>
-        ${button("Review now", `${APP_URL}/portal/orders`, "#16A34A")}
+        ${button("Review now", publicAppUrl("/portal/orders"), "#16A34A")}
       `),
       { preference: "email_on_update", userId },
     );
@@ -169,7 +168,7 @@ export const DFGEmail = {
       shell("Case complete", `
         <p>Hi ${escapeHtml(name || "there")},</p>
         <p>Your <strong>${escapeHtml(service)}</strong> case is complete. Final documents are available in your secure vault.</p>
-        ${button("Open secure vault", `${APP_URL}/portal/vault`)}
+        ${button("Open secure vault", publicAppUrl("/portal/vault"))}
       `),
       { preference: "email_on_complete", userId },
     );
