@@ -20,7 +20,7 @@ const nextConfig: NextConfig = {
         key: "Content-Security-Policy",
         value: [
           "default-src 'self'",
-          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cal.dfgworld.net",
+          "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cal.dfgworld.net https://static.cloudflareinsights.com",
           "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
           "font-src 'self' https://fonts.gstatic.com data:",
           "img-src 'self' data: blob: https://cal.dfgworld.net http://localhost:7130 http://172.16.16.59:7130 https://insforge.dfgworld.net",
