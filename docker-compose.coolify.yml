@@ -74,8 +74,8 @@ services:
     depends_on:
       dfg-temporal:
         condition: service_started
-    ports:
-      - "3000:3000"
+    expose:
+      - "3000"
     restart: unless-stopped
 
   dfg-worker:
@@ -141,8 +141,8 @@ services:
     depends_on:
       dfg-temporal-db:
         condition: service_healthy
-    ports:
-      - "7233:7233"
+    expose:
+      - "7233"
     restart: unless-stopped
 
   dfg-temporal-db:
@@ -168,8 +168,8 @@ services:
     depends_on:
       dfg-temporal:
         condition: service_started
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     restart: unless-stopped
 
   cloudflared:
