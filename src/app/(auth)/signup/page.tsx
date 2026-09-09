@@ -33,13 +33,13 @@ export default function SignupPage() {
   }
 
   return (
-    <div className="min-h-screen bg-soft flex items-center justify-center p-6">
+    <div className="safe-top safe-bottom min-h-[100dvh] bg-soft flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-[440px]">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center mb-4"><Logo /></div>
           <Pill tone="green">Create Your Account</Pill>
         </div>
-        <div className="bg-white border border-border rounded-[20px] p-8 shadow-sm">
+        <div className="bg-white border border-border rounded-[20px] p-5 shadow-sm sm:p-8">
           {success ? (
             <div className="text-center py-4">
               <div className="text-5xl mb-4">&#9993;</div>
@@ -57,19 +57,19 @@ export default function SignupPage() {
               {error && <div className="bg-red-50 border border-red-200 text-red-700 text-sm font-semibold rounded-xl px-4 py-3 mb-4">{error}</div>}
               <form onSubmit={handleSignup} className="flex flex-col gap-4">
                 <div><label className="text-xs font-bold text-muted block mb-1.5">Full Legal Name</label>
-                  <input type="text" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full legal name" required
+                  <input name="name" type="text" autoComplete="name" value={name} onChange={(e) => setName(e.target.value)} placeholder="Your full legal name" required
                     className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0B4DA2] transition-colors" />
                 </div>
                 <div><label className="text-xs font-bold text-muted block mb-1.5">Email Address</label>
-                  <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required
+                  <input name="email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required
                     className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0B4DA2] transition-colors" />
                 </div>
                 <div><label className="text-xs font-bold text-muted block mb-1.5">Password</label>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" required minLength={8}
+                  <input name="new-password" type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="At least 8 characters" required minLength={8}
                     className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0B4DA2] transition-colors" />
                 </div>
                 <div><label className="text-xs font-bold text-muted block mb-1.5">Confirm Password</label>
-                  <input type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm your password" required
+                  <input name="confirm-password" type="password" autoComplete="new-password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} placeholder="Confirm your password" required
                     className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0B4DA2] transition-colors" />
                 </div>
                 <Btn variant="primary" sz="lg" type="submit" disabled={loading} className="w-full">{loading ? "Creating Account..." : "Create Account"}</Btn>

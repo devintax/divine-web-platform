@@ -1,6 +1,6 @@
 "use client";
 
-import { Megaphone, MessageSquarePlus, Plus, Search, Send, ShieldCheck, UsersRound } from "lucide-react";
+import { ChevronLeft, Megaphone, MessageSquarePlus, Plus, Search, Send, ShieldCheck, UsersRound } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useToast } from "@/components/ui/Toast";
 
@@ -172,8 +172,8 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
 
       {showComposer && <ConversationComposer staffMode={staffMode} onCreated={(id) => { setShowComposer(false); setActiveId(id); void loadConversations(false); }} />}
 
-      <div className="grid min-h-[620px] overflow-hidden rounded-2xl border border-border bg-white lg:grid-cols-[310px_1fr]">
-        <aside className="border-b border-border lg:border-b-0 lg:border-r">
+      <div className="grid min-h-[calc(100dvh-13rem)] overflow-hidden rounded-2xl border border-border bg-white lg:min-h-[620px] lg:grid-cols-[310px_1fr]">
+        <aside className={`border-b border-border lg:block lg:border-b-0 lg:border-r ${activeId ? "hidden" : "block"}`}>
           <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
             <div>
               <div className="text-sm font-black text-ink">Inbox</div>
@@ -189,7 +189,7 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
               <Plus size={17} />
             </button>
           </div>
-          <div className="max-h-[260px] overflow-y-auto lg:max-h-[560px]">
+          <div className="max-h-[calc(100dvh-18rem)] overflow-y-auto lg:max-h-[560px]">
             {loading ? (
               <div className="p-4 text-sm text-muted">Loading conversations...</div>
             ) : loadError ? (
@@ -232,11 +232,14 @@ export function ConversationInbox({ staffMode = false }: { staffMode?: boolean }
           </div>
         </aside>
 
-        <section className="flex min-h-[620px] flex-col">
+        <section className={`${activeId ? "flex" : "hidden lg:flex"} min-h-[calc(100dvh-13rem)] flex-col lg:min-h-[620px]`}>
           {active ? (
             <>
-              <div className="border-b border-border px-4 py-3">
+              <div className="border-b border-border px-3 py-2 sm:px-4 sm:py-3">
                 <div className="flex items-center gap-2">
+                  <button type="button" onClick={() => setActiveId("")} className="grid h-11 w-11 flex-shrink-0 place-items-center rounded-lg text-[#0B4DA2] hover:bg-blue-50 lg:hidden" aria-label="Back to conversations">
+                    <ChevronLeft size={21} aria-hidden="true" />
+                  </button>
                   <ConversationIcon type={active.type} />
                   <div className="min-w-0">
                     <div className="truncate text-sm font-black text-ink">{active.title}</div>

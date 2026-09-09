@@ -1,5 +1,6 @@
 "use client";
 
+import { Camera, UploadCloud } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import { Card, Btn } from "@/components/ui";
@@ -65,7 +66,7 @@ export default function PublicUploadPage() {
 
   if (validating) {
     return (
-      <div className="min-h-screen bg-soft flex items-center justify-center p-6">
+      <div className="safe-top safe-bottom min-h-[100dvh] bg-soft flex items-center justify-center p-4 sm:p-6">
         <div className="text-center">
           <div className="text-4xl animate-pulse mb-2">🔐</div>
           <p className="text-sm text-muted">Validating secure link…</p>
@@ -76,7 +77,7 @@ export default function PublicUploadPage() {
 
   if (!valid) {
     return (
-      <div className="min-h-screen bg-soft flex items-center justify-center p-6">
+      <div className="safe-top safe-bottom min-h-[100dvh] bg-soft flex items-center justify-center p-4 sm:p-6">
         <Card className="w-full max-w-md text-center p-8">
           <div className="text-2xl font-black text-[#0B4DA2] mb-3">DFG</div>
           <div className="text-5xl mb-4">🔗</div>
@@ -94,7 +95,7 @@ export default function PublicUploadPage() {
 
   if (done) {
     return (
-      <div className="min-h-screen bg-soft flex items-center justify-center p-6">
+      <div className="safe-top safe-bottom min-h-[100dvh] bg-soft flex items-center justify-center p-4 sm:p-6">
         <Card className="w-full max-w-md text-center p-8">
           <div className="text-2xl font-black text-[#0B4DA2] mb-3">DFG</div>
           <div className="text-5xl mb-4">🎉</div>
@@ -113,7 +114,7 @@ export default function PublicUploadPage() {
   }
 
   return (
-    <div className="min-h-screen bg-soft flex items-center justify-center p-6">
+    <div className="safe-top safe-bottom min-h-[100dvh] bg-soft flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-md space-y-4">
         <div className="text-center">
           <div className="text-2xl font-black text-[#0B4DA2] mb-2">DFG</div>
@@ -124,16 +125,21 @@ export default function PublicUploadPage() {
           <div
             onDrop={onDrop}
             onDragOver={(e) => e.preventDefault()}
-            className="border-2 border-dashed border-[#0B4DA2] bg-blue-50/40 rounded-xl p-8 text-center cursor-pointer hover:bg-blue-50 transition-colors"
-            onClick={() => document.getElementById("file-input")?.click()}
-            role="button"
-            tabIndex={0}
-            onKeyDown={(e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); document.getElementById("file-input")?.click(); } }}
+            className="rounded-xl border-2 border-dashed border-[#0B4DA2] bg-blue-50/40 p-5 text-center transition-colors hover:bg-blue-50 sm:p-8"
           >
-            <div className="text-3xl mb-2">📁</div>
-            <p className="text-sm font-bold text-ink">Drop files here or tap to browse</p>
+            <UploadCloud className="mx-auto mb-2 text-primary" size={34} aria-hidden="true" />
+            <p className="text-sm font-bold text-ink">Add your documents</p>
             <p className="text-xs text-muted mt-1">Max 50MB per file. PDF, JPG, PNG, DOC.</p>
-            <input id="file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="hidden" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+            <div className="mt-4 flex flex-col justify-center gap-2 sm:flex-row">
+              <button type="button" onClick={() => document.getElementById("file-input")?.click()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-bold text-white">
+                <UploadCloud size={17} aria-hidden="true" /> Choose files
+              </button>
+              <button type="button" onClick={() => document.getElementById("camera-input")?.click()} className="inline-flex min-h-11 items-center justify-center gap-2 rounded-lg border border-border bg-white px-4 py-2 text-sm font-bold text-ink md:hidden">
+                <Camera size={17} aria-hidden="true" /> Take photo
+              </button>
+            </div>
+            <input id="file-input" type="file" multiple accept=".pdf,.jpg,.jpeg,.png,.doc,.docx" className="sr-only" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
+            <input id="camera-input" type="file" accept="image/*" capture="environment" className="sr-only" onChange={(e) => setFiles(Array.from(e.target.files || []))} />
           </div>
           {files.length > 0 && (
             <div className="space-y-2">

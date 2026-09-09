@@ -84,13 +84,13 @@ function LoginContent() {
   }
 
   return (
-    <div className="min-h-screen bg-soft flex items-center justify-center p-6">
+    <div className="safe-top safe-bottom min-h-[100dvh] bg-soft flex items-center justify-center p-4 sm:p-6">
       <div className="w-full max-w-[440px]">
-        <div className="text-center mb-8">
+        <div className="text-center mb-6 sm:mb-8">
           <div className="flex justify-center mb-4"><Logo /></div>
           <Pill tone="blue">Secure Client Portal</Pill>
         </div>
-        <div className="bg-white border border-border rounded-[20px] p-8 shadow-sm">
+        <div className="bg-white border border-border rounded-[20px] p-5 shadow-sm sm:p-8">
           <h1 className="text-2xl font-black text-center mb-1">Welcome Back</h1>
           <p className="text-sm text-muted text-center mb-6">Sign in to access your financial dashboard</p>
           {verified === "1" && <div className="bg-green-50 border border-green-200 text-green-700 text-sm font-semibold rounded-xl px-4 py-3 mb-4">Email verified. You can sign in now.</div>}
@@ -112,7 +112,7 @@ function LoginContent() {
                 {twoFactorHint || "Enter the 6-digit verification code."}
               </div>
               <div><label className="text-xs font-bold text-muted block mb-1.5">Verification Code</label>
-                <input type="text" inputMode="numeric" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" required minLength={6}
+                <input name="one-time-code" type="text" inputMode="numeric" autoComplete="one-time-code" value={code} onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))} placeholder="000000" required minLength={6}
                   className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-center text-2xl font-black tracking-[0.35em] outline-none focus:border-[#0B4DA2] transition-colors" />
               </div>
               <Btn variant="primary" sz="lg" type="submit" disabled={loading || code.length !== 6} className="w-full">{loading ? "Verifying..." : "Verify & Sign In"}</Btn>
@@ -123,11 +123,11 @@ function LoginContent() {
           ) : (
             <form onSubmit={handleLogin} className="flex flex-col gap-4">
               <div><label className="text-xs font-bold text-muted block mb-1.5">Email Address</label>
-                <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required
+                <input name="email" type="email" inputMode="email" autoComplete="email" autoCapitalize="none" spellCheck={false} value={email} onChange={(e) => setEmail(e.target.value)} placeholder="your@email.com" required
                   className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0B4DA2] transition-colors" />
               </div>
               <div><label className="text-xs font-bold text-muted block mb-1.5">Password</label>
-                <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required
+                <input name="password" type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder="Enter your password" required
                   className="w-full border-[1.5px] border-border rounded-xl px-4 py-3 text-sm outline-none focus:border-[#0B4DA2] transition-colors" />
               </div>
               <Btn variant="primary" sz="lg" type="submit" disabled={loading} className="w-full">{loading ? "Signing in..." : "Sign In"}</Btn>

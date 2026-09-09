@@ -1,5 +1,6 @@
 "use client";
 
+import { ArrowLeft } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Card, Pill, SecureUploadZone } from "@/components/ui";
 import { SERVICE_WORKFLOW, type ServiceType } from "@/lib/service-workflow";
@@ -29,7 +30,7 @@ export default function ServiceDesk({ service }: { service: ServiceType }) {
     const json = await res.json();
     const rows = json.cases || [];
     setCases(rows);
-    if (!selectedId && rows[0]) setSelectedId(rows[0].id);
+    if (!selectedId && rows[0] && window.matchMedia("(min-width: 1024px)").matches) setSelectedId(rows[0].id);
     setLoading(false);
   }, [selectedId, service]);
 
@@ -104,7 +105,7 @@ export default function ServiceDesk({ service }: { service: ServiceType }) {
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-[340px_1fr] gap-4">
-        <Card className="!p-3 space-y-2 max-h-[72vh] overflow-y-auto">
+        <Card className={`!p-3 space-y-2 max-h-[72vh] overflow-y-auto ${selectedId ? "hidden lg:block" : "block"}`}>
           {loading ? <p className="text-sm text-muted p-3">Loading queue...</p> : cases.length === 0 ? <p className="text-sm text-muted p-3">No open cases.</p> : cases.map((item) => (
             <button key={item.id} onClick={() => setSelectedId(item.id)}
               className={`w-full text-left rounded-xl border p-3 transition-colors ${selectedId === item.id ? "border-[#0B4DA2] bg-blue-50" : "border-border bg-white hover:bg-soft"}`}>
@@ -127,12 +128,15 @@ export default function ServiceDesk({ service }: { service: ServiceType }) {
           ))}
         </Card>
 
-        <Card className="!p-0 overflow-hidden">
+        <Card className={`!p-0 overflow-hidden ${selectedId ? "block" : "hidden lg:block"}`}>
           {!selected ? (
             <div className="p-6 text-sm text-muted">Select a case from the queue.</div>
           ) : (
             <>
-              <div className="p-5 border-b border-border">
+              <div className="p-4 border-b border-border sm:p-5">
+                <button type="button" onClick={() => { setSelectedId(""); setSelected(null); }} className="mb-3 inline-flex min-h-11 items-center gap-2 rounded-lg px-2 text-sm font-bold text-[#0B4DA2] lg:hidden">
+                  <ArrowLeft size={17} aria-hidden="true" /> Back to queue
+                </button>
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div>
                     <h2 className="text-lg font-black text-ink">{selected.client?.legal_name || selected.client?.email || "Client"}</h2>

@@ -28,11 +28,13 @@ body {
   -moz-osx-font-smoothing: grayscale;
   overflow-x: hidden;
   -webkit-text-size-adjust: 100%;
+  min-height: 100dvh;
 }
 
 /* iOS safe area insets */
 @supports (padding: env(safe-area-inset-bottom)) {
   .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+  .safe-bottom-pad { padding-bottom: calc(1rem + env(safe-area-inset-bottom)); }
   .safe-top { padding-top: env(safe-area-inset-top); }
 }
 
@@ -47,6 +49,22 @@ input, textarea, select {
 button, a, [role="button"] {
   touch-action: manipulation;
   -webkit-tap-highlight-color: transparent;
+}
+
+button, [role="button"], input, select, textarea {
+  font-family: inherit;
+}
+
+@media (pointer: coarse) {
+  button, [role="button"] {
+    min-height: 44px;
+  }
+}
+
+@media (display-mode: standalone) {
+  body {
+    overscroll-behavior-y: none;
+  }
 }
 
 /* Focus styles */

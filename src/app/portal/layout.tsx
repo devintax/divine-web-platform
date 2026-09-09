@@ -1,6 +1,6 @@
 "use client";
 
-import { BotMessageSquare, BriefcaseBusiness, Building2, CalendarDays, FileSignature, Home, KeyRound, LogOut, MessageSquareText, ReceiptText, ShieldCheck, UserRound, Vault } from "lucide-react";
+import { BotMessageSquare, BriefcaseBusiness, Building2, CalendarDays, FileSignature, Home, KeyRound, LogOut, MessageSquareText, MoreHorizontal, ReceiptText, ShieldCheck, UserRound, Vault, X } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -8,6 +8,7 @@ import type { ComponentType } from "react";
 import { useEffect, useRef, useState } from "react";
 import { UniversalSearch } from "@/components/portal/admin/UniversalSearch";
 import { NotificationBell } from "@/components/portal/NotificationBell";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 
 const ALL_NAV = [
   { path: "/portal", icon: Home, label: "Dashboard", exact: true },
@@ -29,6 +30,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const pathname = usePathname() || "";
   const [profile, setProfile] = useState<any>(null);
   const [showMenu, setShowMenu] = useState(false);
+  const [showMobileNav, setShowMobileNav] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [liveConnected, setLiveConnected] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -39,6 +41,24 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
       .then((data) => setProfile(data))
       .catch(() => setProfile(null));
   }, []);
+
+  useEffect(() => {
+    setShowMobileNav(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!showMobileNav) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setShowMobileNav(false);
+    };
+    document.addEventListener("keydown", closeOnEscape);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", closeOnEscape);
+    };
+  }, [showMobileNav]);
 
   useEffect(() => {
     function handler(event: MouseEvent) {
@@ -71,6 +91,12 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
   const role = profile?.role || "";
   const isStaff = STAFF_ROLES.has(role);
   const nav = ALL_NAV.filter((item) => !item.staffOnly || isStaff);
+  const primaryPaths = new Set(isStaff
+    ? ["/portal", "/portal/admin", "/portal/vault", "/portal/messages"]
+    : ["/portal", "/portal/intake", "/portal/vault", "/portal/messages"]);
+  const primaryNav = nav.filter((item) => primaryPaths.has(item.path));
+  const secondaryNav = nav.filter((item) => !primaryPaths.has(item.path));
+  const secondaryActive = secondaryNav.some(isActive);
   const initials = (profile?.legal_name || profile?.email || "?")
     .split(" ")
     .map((part: string) => part[0])
@@ -96,7 +122,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           <Link href="/" className="text-xl font-black text-[#0B4DA2]">DFG</Link>
           <Link href="/" className="text-[10px] font-bold text-muted hover:text-ink">Close</Link>
         </div>
-        <nav className="flex-1 px-3 space-y-1">
+        <nav className="flex-1 overflow-y-auto px-3 pb-3 space-y-1">
           {nav.map((item) => {
             const active = isActive(item);
             const Icon = item.icon;
@@ -104,7 +130,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
               <Link
                 key={item.path}
                 href={item.path}
-                className={`flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-bold transition-colors ${active ? "bg-[#0B4DA2] text-white" : "text-muted hover:bg-slate-50"}`}
+                aria-current={active ? "page" : undefined}
+                className={`flex min-h-11 items-center gap-3 rounded-lg px-4 py-2.5 text-sm font-bold transition-colors ${active ? "bg-[#0B4DA2] text-white" : "text-muted hover:bg-slate-50"}`}
               >
                 <Icon size={18} />
                 {item.label}
@@ -121,8 +148,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </div>
       </aside>
 
-      <div className="flex-1 md:ml-[220px] flex flex-col min-h-screen">
-        <header className="sticky top-0 z-20 bg-white border-b border-border h-14 md:h-16 px-4 flex items-center justify-between">
+      <div className="flex min-h-[100dvh] flex-1 flex-col md:ml-[220px]">
+        <header className="safe-top sticky top-0 z-20 flex min-h-14 items-center justify-between border-b border-border bg-white px-4 md:min-h-16">
           <div className="flex items-center gap-2">
             <Link href="/" className="md:hidden text-lg font-black text-[#0B4DA2]">DFG</Link>
             <span className="hidden md:block text-xs text-muted">{getBreadcrumb(pathname)}</span>
@@ -158,6 +185,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
                   <MenuLink href="/portal/profile" icon={UserRound} label="Profile & Settings" />
                   <MenuLink href="/reset-password" icon={KeyRound} label="Change Password" />
                   {isStaff && <MenuLink href="/portal/admin" icon={ShieldCheck} label="Admin Portal" />}
+                  <InstallAppButton />
                   <button onClick={doSignOut} className="flex w-full items-center gap-2 text-left px-3 py-2 text-xs font-bold text-red-600 rounded-lg hover:bg-red-50">
                     <LogOut size={14} />
                     Sign Out
@@ -168,27 +196,70 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           )}
         </header>
 
-        <main className="flex-1 pb-[80px] md:pb-6">
-          <div className="max-w-5xl mx-auto px-4 py-5 md:py-7">{children}</div>
+        <main className="flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-6">
+          <div className={`mx-auto px-4 py-5 sm:px-5 md:py-7 ${isStaff && pathname.startsWith("/portal/admin") ? "max-w-[1440px]" : "max-w-5xl"}`}>{children}</div>
         </main>
       </div>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 h-16 bg-white border-t border-border flex items-center justify-around z-40" style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {nav.map((item) => {
+      <nav aria-label="Primary" className="fixed inset-x-0 bottom-0 z-40 flex min-h-[calc(4.25rem+env(safe-area-inset-bottom))] items-start border-t border-border bg-white/95 px-1 pt-1.5 pb-[env(safe-area-inset-bottom)] shadow-[0_-6px_20px_rgba(15,23,42,0.06)] backdrop-blur md:hidden">
+        {primaryNav.map((item) => {
           const active = isActive(item);
           const Icon = item.icon;
           return (
             <Link
               key={item.path}
               href={item.path}
-              className={`flex flex-col items-center gap-1 text-[10px] font-bold pt-1 flex-1 ${active ? "text-[#0B4DA2]" : "text-muted"}`}
+              aria-current={active ? "page" : undefined}
+              className={`flex min-h-[3.75rem] flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-bold ${active ? "bg-blue-50 text-[#0B4DA2]" : "text-muted"}`}
             >
-              <Icon size={20} />
-              <span className="leading-none">{item.label}</span>
+              <Icon size={21} aria-hidden="true" />
+              <span className="max-w-full truncate leading-none">{item.label}</span>
             </Link>
           );
         })}
+        <button
+          type="button"
+          onClick={() => setShowMobileNav(true)}
+          aria-expanded={showMobileNav}
+          aria-controls="mobile-portal-menu"
+          className={`flex min-h-[3.75rem] flex-1 flex-col items-center justify-center gap-1 rounded-lg px-1 text-[10px] font-bold ${secondaryActive ? "bg-blue-50 text-[#0B4DA2]" : "text-muted"}`}
+        >
+          <MoreHorizontal size={22} aria-hidden="true" />
+          <span className="leading-none">More</span>
+        </button>
       </nav>
+
+      {showMobileNav && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-labelledby="mobile-menu-title">
+          <button type="button" className="absolute inset-0 h-full w-full bg-slate-950/45" onClick={() => setShowMobileNav(false)} aria-label="Close navigation menu" />
+          <section id="mobile-portal-menu" className="safe-bottom-pad absolute inset-x-0 bottom-0 max-h-[82dvh] overflow-y-auto rounded-t-2xl bg-white px-4 pt-3 shadow-2xl">
+            <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-slate-300" />
+            <div className="mb-3 flex min-h-11 items-center justify-between">
+              <h2 id="mobile-menu-title" className="text-base font-black text-ink">Portal menu</h2>
+              <button type="button" onClick={() => setShowMobileNav(false)} className="grid h-11 w-11 place-items-center rounded-full text-muted hover:bg-slate-100" aria-label="Close navigation menu">
+                <X size={22} aria-hidden="true" />
+              </button>
+            </div>
+            {isStaff && pathname.startsWith("/portal/admin") && <div className="mb-3"><UniversalSearch /></div>}
+            <nav aria-label="More portal destinations" className="grid grid-cols-2 gap-2">
+              {secondaryNav.map((item) => {
+                const active = isActive(item);
+                const Icon = item.icon;
+                return (
+                  <Link key={item.path} href={item.path} aria-current={active ? "page" : undefined} className={`flex min-h-14 items-center gap-3 rounded-lg border px-3 py-2 text-sm font-bold ${active ? "border-blue-200 bg-blue-50 text-[#0B4DA2]" : "border-border text-ink"}`}>
+                    <Icon size={19} aria-hidden="true" />
+                    <span>{item.label}</span>
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="mt-3 border-t border-border pt-2"><InstallAppButton /></div>
+            <button type="button" onClick={doSignOut} className="mt-1 flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-left text-sm font-bold text-red-600 hover:bg-red-50">
+              <LogOut size={18} aria-hidden="true" /> Sign Out
+            </button>
+          </section>
+        </div>
+      )}
     </div>
   );
 }

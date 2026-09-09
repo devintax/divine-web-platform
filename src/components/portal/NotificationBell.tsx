@@ -19,11 +19,15 @@ export function NotificationBell() {
   const [unread, setUnread] = useState(0);
 
   async function load() {
-    const res = await fetch("/api/portal/notifications", { credentials: "include" });
-    if (!res.ok) return;
-    const data = await res.json();
-    setItems(data.notifications || []);
-    setUnread(Number(data.unreadCount || 0));
+    try {
+      const res = await fetch("/api/portal/notifications", { credentials: "include" });
+      if (!res.ok) return;
+      const data = await res.json();
+      setItems(data.notifications || []);
+      setUnread(Number(data.unreadCount || 0));
+    } catch {
+      // Keep the last known state during brief offline or reconnect periods.
+    }
   }
 
   useEffect(() => {
@@ -33,8 +37,12 @@ export function NotificationBell() {
   }, []);
 
   async function markRead() {
-    await fetch("/api/portal/notifications", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
-    await load();
+    try {
+      await fetch("/api/portal/notifications", { method: "PATCH", credentials: "include", headers: { "Content-Type": "application/json" }, body: JSON.stringify({}) });
+      await load();
+    } catch {
+      // A later poll will retry when connectivity returns.
+    }
   }
 
   return (
