@@ -54,7 +54,10 @@ function ResetPasswordContent() {
 
   async function resetPassword(e: React.FormEvent) {
     e.preventDefault();
-    if (!token) return;
+    if (!token && (!email || code.length !== 6)) {
+      toast.error("Enter the 6-digit reset code from your email.");
+      return;
+    }
     if (password !== confirmPassword) {
       toast.error("Passwords do not match.");
       return;
@@ -64,7 +67,7 @@ function ResetPasswordContent() {
       const res = await fetch("/api/auth/password-reset", {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token, email, code, password }),
+        body: JSON.stringify({ token: token || undefined, email, code, password }),
       });
       const data = await res.json().catch(() => ({}));
       if (!res.ok) throw new Error(data.error || "Password reset failed.");
@@ -210,7 +213,7 @@ function ResetPasswordContent() {
     <div className="flex min-h-screen items-center justify-center bg-soft p-6">
       <Card className="w-full max-w-md p-8">
         <h1 className="text-2xl font-black text-ink">Reset Password</h1>
-        <p className="mt-2 text-sm leading-7 text-muted">Enter your email and we will send a reset link if the account exists.</p>
+        <p className="mt-2 text-sm leading-7 text-muted">Enter your email and we will send a reset code if the account exists.</p>
         <form onSubmit={submit} className="mt-6 space-y-4">
           <div>
             <label className="mb-1 block text-xs font-bold uppercase tracking-wide text-muted">Email Address</label>
@@ -224,7 +227,7 @@ function ResetPasswordContent() {
             />
           </div>
           <Btn variant="primary" className="w-full" disabled={loading}>
-            {loading ? "Sending..." : "Send Reset Link"} {!loading && <Send size={16} />}
+            {loading ? "Sending..." : "Send Reset Code"} {!loading && <Send size={16} />}
           </Btn>
         </form>
         <div className="mt-5 text-center text-sm">
