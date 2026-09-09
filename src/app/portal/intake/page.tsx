@@ -76,13 +76,16 @@ export default function IntakeHub() {
   };
 
   return (
-    <div className="space-y-6 pb-32 md:pb-0">
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 -mx-4 px-4 md:mx-0 md:px-0">
+    <div className="space-y-6">
+      <div aria-label="Available services" className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:flex lg:items-stretch">
         {SERVICES.map((s) => (
-          <button key={s.key} onClick={() => selectSvc(s.key)}
-            className={`whitespace-nowrap px-4 py-2.5 rounded-xl text-xs font-bold transition-colors border flex items-center gap-1.5 ${svc === s.key ? "text-white border-transparent" : "bg-white text-muted border-border hover:bg-soft"}`}
+          <button key={s.key} type="button" onClick={() => selectSvc(s.key)}
+            data-service-key={s.key}
+            aria-pressed={svc === s.key}
+            className={`flex min-h-12 min-w-0 items-center justify-start gap-2 rounded-lg border px-3 py-2.5 text-left text-xs font-bold transition-colors sm:justify-center sm:text-center lg:flex-1 ${s.key === "bookkeeping" ? "col-span-2 sm:col-span-1" : ""} ${svc === s.key ? "text-white border-transparent" : "bg-white text-muted border-border hover:bg-soft"}`}
             style={svc === s.key ? { background: s.color } : {}}>
-            <span>{s.icon}</span>{s.label}
+            <span aria-hidden="true" className="shrink-0">{s.icon}</span>
+            <span className="min-w-0 leading-tight">{s.label}</span>
           </button>
         ))}
       </div>

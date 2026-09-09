@@ -216,7 +216,7 @@ export default function ProfilePanel() {
             <Field label="Phone" value={form.phone || ""} onChange={(value) => updateField("phone", value)} icon={<Phone size={16} />} />
             <Field label="Email" value={form.email || ""} readOnly icon={<Mail size={16} />} />
             <Field label="Address" value={form.address || ""} onChange={(value) => updateField("address", value)} icon={<MapPin size={16} />} />
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid min-w-0 grid-cols-1 gap-3 min-[420px]:grid-cols-3">
               <Field label="City" value={form.city || ""} onChange={(value) => updateField("city", value)} />
               <Field label="State" value={form.state || ""} onChange={(value) => updateField("state", value)} />
               <Field label="ZIP" value={form.zip || ""} onChange={(value) => updateField("zip", value)} />
@@ -289,15 +289,15 @@ function initials(value?: string | null) {
 
 function Field({ label, value, onChange, readOnly, icon }: { label: string; value: string; onChange?: (value: string) => void; readOnly?: boolean; icon?: ReactNode }) {
   return (
-    <label className="block">
+    <label className="block min-w-0">
       <span className="block text-xs font-bold text-muted mb-1">{label}</span>
-      <span className="relative block">
+      <span className="relative block min-w-0">
         {icon && <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted">{icon}</span>}
         <input
           value={value}
           readOnly={readOnly}
           onChange={(event) => onChange?.(event.target.value)}
-          className={`w-full rounded-lg border border-border px-3 py-2 text-sm text-ink ${icon ? "pl-9" : ""} ${readOnly ? "bg-slate-50 text-muted" : "bg-white"}`}
+          className={`min-w-0 w-full rounded-lg border border-border px-3 py-2 text-sm text-ink ${icon ? "pl-9" : ""} ${readOnly ? "bg-slate-50 text-muted" : "bg-white"}`}
           style={{ fontSize: 16 }}
         />
       </span>

@@ -41,7 +41,7 @@ export function StepWizard({
         <h2 className="text-base font-black text-ink mb-1">{title}</h2>
       </div>
       <div className="p-5 pt-2">{children}</div>
-      <div className="p-5 md:p-5 border-t border-border flex gap-3 bg-white md:static fixed bottom-[64px] left-0 right-0 z-40 px-4 py-3 md:bottom-auto shadow-[0_-2px_8px_rgba(0,0,0,0.06)]">
+      <div className="flex gap-3 border-t border-border bg-white p-4 sm:p-5">
         {currentStep > 0 ? (
           <Btn variant="secondary" className="flex-1" onClick={onBack}>Back</Btn>
         ) : <div className="flex-1" />}

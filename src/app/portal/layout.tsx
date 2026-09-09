@@ -148,7 +148,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         </div>
       </aside>
 
-      <div className="flex min-h-[100dvh] flex-1 flex-col md:ml-[220px]">
+      <div className="flex min-h-[100dvh] min-w-0 w-full flex-1 flex-col md:ml-[220px] md:w-auto">
         <header className="safe-top sticky top-0 z-20 flex min-h-14 items-center justify-between border-b border-border bg-white px-4 md:min-h-16">
           <div className="flex items-center gap-2">
             <Link href="/" className="md:hidden text-lg font-black text-[#0B4DA2]">DFG</Link>
@@ -196,8 +196,8 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
           )}
         </header>
 
-        <main className="flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-6">
-          <div className={`mx-auto px-4 py-5 sm:px-5 md:py-7 ${isStaff && pathname.startsWith("/portal/admin") ? "max-w-[1440px]" : "max-w-5xl"}`}>{children}</div>
+        <main className="min-w-0 flex-1 pb-[calc(5.25rem+env(safe-area-inset-bottom))] md:pb-6">
+          <div className={`mx-auto min-w-0 w-full px-4 py-5 sm:px-5 md:py-7 ${isStaff && pathname.startsWith("/portal/admin") ? "max-w-[1440px]" : "max-w-5xl"}`}>{children}</div>
         </main>
       </div>
 
