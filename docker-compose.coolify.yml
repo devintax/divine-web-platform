@@ -137,6 +137,7 @@ services:
       POSTGRES_USER: temporal
       POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-temporal}
       POSTGRES_SEEDS: dfg-temporal-db
+      DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE:-divine-financial}
     depends_on:
       dfg-temporal-db:
         condition: service_healthy
