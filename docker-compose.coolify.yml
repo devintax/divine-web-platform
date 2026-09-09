@@ -138,6 +138,8 @@ services:
       POSTGRES_PWD: ${TEMPORAL_DB_PASSWORD:-temporal}
       POSTGRES_SEEDS: dfg-temporal-db
       DEFAULT_NAMESPACE: ${TEMPORAL_NAMESPACE:-divine-financial}
+      # Prevent the bundled CLI from receiving the namespace twice during auto-setup.
+      TEMPORAL_NAMESPACE: ""
     depends_on:
       dfg-temporal-db:
         condition: service_healthy
