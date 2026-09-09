@@ -32,5 +32,5 @@ COPY --from=builder /app/dist ./dist
 COPY package.json ./
 
 USER worker
-ENTRYPOINT ["/sbin/tini", "--"]
+ENTRYPOINT ["/usr/bin/tini", "--"]
 CMD ["node", "dist/temporal/worker.js"]
